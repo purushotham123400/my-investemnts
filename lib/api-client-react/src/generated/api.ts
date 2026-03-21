@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  CreateAlertInput,
   CreateHoldingInput,
   ErrorResponse,
   GetPortfolioHistoryParams,
@@ -26,7 +27,9 @@ import type {
   HoldingPrice,
   MarketPrices,
   MessageResponse,
+  PriceAlert,
   SnapshotInput,
+  UpdateAlertInput,
   UpdateHoldingInput,
 } from "./api.schemas";
 
@@ -596,6 +599,411 @@ export function useGetHoldingPrices<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get all price alerts
+ */
+export const getGetAlertsUrl = () => {
+  return `/api/alerts`;
+};
+
+export const getAlerts = async (
+  options?: RequestInit,
+): Promise<PriceAlert[]> => {
+  return customFetch<PriceAlert[]>(getGetAlertsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAlertsQueryKey = () => {
+  return [`/api/alerts`] as const;
+};
+
+export const getGetAlertsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAlerts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getAlerts>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAlertsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAlerts>>> = ({
+    signal,
+  }) => getAlerts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAlerts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAlertsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAlerts>>
+>;
+export type GetAlertsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get all price alerts
+ */
+
+export function useGetAlerts<
+  TData = Awaited<ReturnType<typeof getAlerts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getAlerts>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAlertsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a price alert
+ */
+export const getCreateAlertUrl = () => {
+  return `/api/alerts`;
+};
+
+export const createAlert = async (
+  createAlertInput: CreateAlertInput,
+  options?: RequestInit,
+): Promise<PriceAlert> => {
+  return customFetch<PriceAlert>(getCreateAlertUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAlertInput),
+  });
+};
+
+export const getCreateAlertMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAlert>>,
+    TError,
+    { data: BodyType<CreateAlertInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAlert>>,
+  TError,
+  { data: BodyType<CreateAlertInput> },
+  TContext
+> => {
+  const mutationKey = ["createAlert"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAlert>>,
+    { data: BodyType<CreateAlertInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createAlert(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAlertMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAlert>>
+>;
+export type CreateAlertMutationBody = BodyType<CreateAlertInput>;
+export type CreateAlertMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a price alert
+ */
+export const useCreateAlert = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAlert>>,
+    TError,
+    { data: BodyType<CreateAlertInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAlert>>,
+  TError,
+  { data: BodyType<CreateAlertInput> },
+  TContext
+> => {
+  return useMutation(getCreateAlertMutationOptions(options));
+};
+
+/**
+ * @summary Delete a price alert
+ */
+export const getDeleteAlertUrl = (id: number) => {
+  return `/api/alerts/${id}`;
+};
+
+export const deleteAlert = async (
+  id: number,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(getDeleteAlertUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAlertMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAlert>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAlert>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAlert"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAlert>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteAlert(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAlertMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAlert>>
+>;
+
+export type DeleteAlertMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete a price alert
+ */
+export const useDeleteAlert = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAlert>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAlert>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteAlertMutationOptions(options));
+};
+
+/**
+ * @summary Update alert (e.g. reset triggered status)
+ */
+export const getUpdateAlertUrl = (id: number) => {
+  return `/api/alerts/${id}`;
+};
+
+export const updateAlert = async (
+  id: number,
+  updateAlertInput: UpdateAlertInput,
+  options?: RequestInit,
+): Promise<PriceAlert> => {
+  return customFetch<PriceAlert>(getUpdateAlertUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateAlertInput),
+  });
+};
+
+export const getUpdateAlertMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAlert>>,
+    TError,
+    { id: number; data: BodyType<UpdateAlertInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAlert>>,
+  TError,
+  { id: number; data: BodyType<UpdateAlertInput> },
+  TContext
+> => {
+  const mutationKey = ["updateAlert"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAlert>>,
+    { id: number; data: BodyType<UpdateAlertInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateAlert(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAlertMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAlert>>
+>;
+export type UpdateAlertMutationBody = BodyType<UpdateAlertInput>;
+export type UpdateAlertMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update alert (e.g. reset triggered status)
+ */
+export const useUpdateAlert = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAlert>>,
+    TError,
+    { id: number; data: BodyType<UpdateAlertInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAlert>>,
+  TError,
+  { id: number; data: BodyType<UpdateAlertInput> },
+  TContext
+> => {
+  return useMutation(getUpdateAlertMutationOptions(options));
+};
+
+/**
+ * @summary Check all active alerts against current prices and return triggered ones
+ */
+export const getCheckAlertsUrl = () => {
+  return `/api/alerts/check`;
+};
+
+export const checkAlerts = async (
+  options?: RequestInit,
+): Promise<PriceAlert[]> => {
+  return customFetch<PriceAlert[]>(getCheckAlertsUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getCheckAlertsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkAlerts>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof checkAlerts>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["checkAlerts"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof checkAlerts>>,
+    void
+  > = () => {
+    return checkAlerts(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CheckAlertsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof checkAlerts>>
+>;
+
+export type CheckAlertsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Check all active alerts against current prices and return triggered ones
+ */
+export const useCheckAlerts = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkAlerts>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof checkAlerts>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getCheckAlertsMutationOptions(options));
+};
 
 /**
  * @summary Get portfolio value history

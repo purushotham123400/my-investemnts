@@ -15,6 +15,8 @@ tags:
     description: Market price operations
   - name: history
     description: Portfolio history operations
+  - name: alerts
+    description: Price alert operations
 paths:
   /healthz:
     get:
@@ -149,6 +151,107 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/HoldingPrice"
+
+  /alerts:
+    get:
+      operationId: getAlerts
+      tags: [alerts]
+      summary: Get all price alerts
+      responses:
+        "200":
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PriceAlert"
+    post:
+      operationId: createAlert
+      tags: [alerts]
+      summary: Create a price alert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAlertInput"
+      responses:
+        "201":
+          description: Created alert
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceAlert"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /alerts/{id}:
+    delete:
+      operationId: deleteAlert
+      tags: [alerts]
+      summary: Delete a price alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateAlert
+      tags: [alerts]
+      summary: Update alert (e.g. reset triggered status)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAlertInput"
+      responses:
+        "200":
+          description: Updated alert
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceAlert"
+
+  /alerts/check:
+    post:
+      operationId: checkAlerts
+      tags: [alerts]
+      summary: Check all active alerts against current prices and return triggered ones
+      responses:
+        "200":
+          description: Triggered alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PriceAlert"
 
   /history:
     get:
@@ -375,6 +478,67 @@ components:
         - totalValue
         - totalInvested
         - profitLoss
+
+    PriceAlert:
+      type: object
+      properties:
+        id:
+          type: integer
+        symbol:
+          type: string
+        name:
+          type: string
+        targetPrice:
+          type: number
+        direction:
+          type: string
+          enum: [above, below]
+        isActive:
+          type: boolean
+        isTriggered:
+          type: boolean
+        triggeredAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - symbol
+        - name
+        - targetPrice
+        - direction
+        - isActive
+        - isTriggered
+        - triggeredAt
+        - createdAt
+
+    CreateAlertInput:
+      type: object
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        targetPrice:
+          type: number
+        direction:
+          type: string
+          enum: [above, below]
+      required:
+        - symbol
+        - name
+        - targetPrice
+        - direction
+
+    UpdateAlertInput:
+      type: object
+      properties:
+        isActive:
+          type: ["boolean", "null"]
+        isTriggered:
+          type: ["boolean", "null"]
+        targetPrice:
+          type: ["number", "null"]
 
     SnapshotInput:
       type: object

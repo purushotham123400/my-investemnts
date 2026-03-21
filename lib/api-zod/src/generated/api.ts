@@ -153,6 +153,84 @@ export const GetHoldingPricesResponseItem = zod.object({
 export const GetHoldingPricesResponse = zod.array(GetHoldingPricesResponseItem);
 
 /**
+ * @summary Get all price alerts
+ */
+export const GetAlertsResponseItem = zod.object({
+  id: zod.number(),
+  symbol: zod.string(),
+  name: zod.string(),
+  targetPrice: zod.number(),
+  direction: zod.enum(["above", "below"]),
+  isActive: zod.boolean(),
+  isTriggered: zod.boolean(),
+  triggeredAt: zod.string().nullable(),
+  createdAt: zod.string(),
+});
+export const GetAlertsResponse = zod.array(GetAlertsResponseItem);
+
+/**
+ * @summary Create a price alert
+ */
+export const CreateAlertBody = zod.object({
+  symbol: zod.string(),
+  name: zod.string(),
+  targetPrice: zod.number(),
+  direction: zod.enum(["above", "below"]),
+});
+
+/**
+ * @summary Delete a price alert
+ */
+export const DeleteAlertParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteAlertResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Update alert (e.g. reset triggered status)
+ */
+export const UpdateAlertParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateAlertBody = zod.object({
+  isActive: zod.boolean().nullish(),
+  isTriggered: zod.boolean().nullish(),
+  targetPrice: zod.number().nullish(),
+});
+
+export const UpdateAlertResponse = zod.object({
+  id: zod.number(),
+  symbol: zod.string(),
+  name: zod.string(),
+  targetPrice: zod.number(),
+  direction: zod.enum(["above", "below"]),
+  isActive: zod.boolean(),
+  isTriggered: zod.boolean(),
+  triggeredAt: zod.string().nullable(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Check all active alerts against current prices and return triggered ones
+ */
+export const CheckAlertsResponseItem = zod.object({
+  id: zod.number(),
+  symbol: zod.string(),
+  name: zod.string(),
+  targetPrice: zod.number(),
+  direction: zod.enum(["above", "below"]),
+  isActive: zod.boolean(),
+  isTriggered: zod.boolean(),
+  triggeredAt: zod.string().nullable(),
+  createdAt: zod.string(),
+});
+export const CheckAlertsResponse = zod.array(CheckAlertsResponseItem);
+
+/**
  * @summary Get portfolio value history
  */
 export const getPortfolioHistoryQueryRangeDefault = `1m`;

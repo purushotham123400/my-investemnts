@@ -4,6 +4,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
+import { useAlertChecker } from "@/hooks/use-alerts";
+import { AlertsPanel } from "@/components/alerts/AlertsPanel";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -13,6 +15,17 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function AppContent() {
+  useAlertChecker();
+  
+  return (
+    <>
+      <Router />
+      <AlertsPanel />
+    </>
+  );
+}
 
 function Router() {
   return (
@@ -29,7 +42,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
+            <AppContent />
           </WouterRouter>
           <Toaster />
         </TooltipProvider>

@@ -39,17 +39,17 @@ export function AddHoldingDialog() {
   return (
     <Dialog open={open} onOpenChange={(val) => { setOpen(val); if(!val) form.reset(); }}>
       <DialogTrigger asChild>
-        <Button className="font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20">
+        <Button className="font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 w-full sm:w-auto">
           <PlusCircle className="w-4 h-4 mr-2" />
           Add Investment
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] glass-panel border-none shadow-2xl">
+      <DialogContent className="max-w-[95vw] sm:max-w-[425px] glass-panel border-none shadow-2xl rounded-xl">
         <DialogHeader>
           <DialogTitle className="text-xl font-display">New Investment</DialogTitle>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Symbol</Label>
               <Input placeholder="RELIANCE" {...form.register("symbol")} className="bg-background/50" />
@@ -94,7 +94,7 @@ export function AddHoldingDialog() {
           </div>
 
           <div className="pt-4 flex justify-end">
-            <Button type="submit" disabled={form.formState.isSubmitting} className="w-full sm:w-auto">
+            <Button type="submit" disabled={form.formState.isSubmitting} className="w-full">
               {form.formState.isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Save Investment
             </Button>
@@ -149,7 +149,7 @@ export function TradeSharesDialog({ holding, mode, open, onOpenChange }: TradeSh
 
   return (
     <Dialog open={open} onOpenChange={(val) => { onOpenChange(val); if(!val) form.reset(); }}>
-      <DialogContent className="sm:max-w-[400px] glass-panel border-none shadow-2xl">
+      <DialogContent className="max-w-[95vw] sm:max-w-[400px] glass-panel border-none shadow-2xl rounded-xl">
         <DialogHeader>
           <DialogTitle className="text-xl font-display flex items-center">
             {isAdd ? <Plus className="w-5 h-5 mr-2 text-green-500" /> : <Minus className="w-5 h-5 mr-2 text-destructive" />}

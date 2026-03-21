@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./createAlertInput";
+export * from "./createAlertInputDirection";
 export * from "./createHoldingInput";
 export * from "./createHoldingInputType";
 export * from "./errorResponse";
@@ -18,7 +20,10 @@ export * from "./holdingPrice";
 export * from "./holdingType";
 export * from "./marketPrices";
 export * from "./messageResponse";
+export * from "./priceAlert";
+export * from "./priceAlertDirection";
 export * from "./priceData";
 export * from "./snapshotInput";
+export * from "./updateAlertInput";
 export * from "./updateHoldingInput";
 export * from "./updateHoldingInputAction";

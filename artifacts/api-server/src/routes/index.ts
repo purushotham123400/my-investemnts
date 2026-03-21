@@ -3,6 +3,7 @@ import healthRouter from "./health";
 import holdingsRouter from "./holdings";
 import pricesRouter, { getHoldingCurrentPrices } from "./prices";
 import historyRouter from "./history";
+import alertsRouter from "./alerts";
 import { db, holdingsTable } from "@workspace/db";
 
 const router: IRouter = Router();
@@ -34,5 +35,6 @@ router.get("/holdings/prices", async (req, res) => {
 router.use("/holdings", holdingsRouter);
 router.use("/prices", pricesRouter);
 router.use("/history", historyRouter);
+router.use("/alerts", alertsRouter);
 
 export default router;

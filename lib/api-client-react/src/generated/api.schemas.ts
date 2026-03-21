@@ -109,6 +109,51 @@ export interface HistoryPoint {
   profitLoss: number;
 }
 
+export type PriceAlertDirection =
+  (typeof PriceAlertDirection)[keyof typeof PriceAlertDirection];
+
+export const PriceAlertDirection = {
+  above: "above",
+  below: "below",
+} as const;
+
+export interface PriceAlert {
+  id: number;
+  symbol: string;
+  name: string;
+  targetPrice: number;
+  direction: PriceAlertDirection;
+  isActive: boolean;
+  isTriggered: boolean;
+  /** @nullable */
+  triggeredAt: string | null;
+  createdAt: string;
+}
+
+export type CreateAlertInputDirection =
+  (typeof CreateAlertInputDirection)[keyof typeof CreateAlertInputDirection];
+
+export const CreateAlertInputDirection = {
+  above: "above",
+  below: "below",
+} as const;
+
+export interface CreateAlertInput {
+  symbol: string;
+  name: string;
+  targetPrice: number;
+  direction: CreateAlertInputDirection;
+}
+
+export interface UpdateAlertInput {
+  /** @nullable */
+  isActive?: boolean | null;
+  /** @nullable */
+  isTriggered?: boolean | null;
+  /** @nullable */
+  targetPrice?: number | null;
+}
+
 export interface SnapshotInput {
   totalValue: number;
   totalInvested: number;

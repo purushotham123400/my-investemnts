@@ -31,44 +31,44 @@ const COLORS = [
 const CustomAreaTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-card/95 backdrop-blur-xl border border-border p-4 rounded-xl shadow-2xl">
-        <p className="text-sm font-medium text-muted-foreground mb-3">
+      <div className="bg-card/95 backdrop-blur-xl border border-border p-3 md:p-4 rounded-xl shadow-2xl">
+        <p className="text-xs md:text-sm font-medium text-muted-foreground mb-2 md:mb-3">
           {format(new Date(label), "MMM dd, yyyy")}
         </p>
         {payload.map((entry: any, index: number) => (
-          <div key={index} className="flex items-center justify-between space-x-6 mb-1">
+          <div key={index} className="flex items-center justify-between space-x-4 md:space-x-6 mb-1">
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-              <span className="text-sm font-medium text-foreground">{entry.name}</span>
+              <span className="text-xs md:text-sm font-medium text-foreground">{entry.name}</span>
             </div>
-            <span className="text-sm font-bold">{formatINR(entry.value)}</span>
+            <span className="text-xs md:text-sm font-bold">{formatINR(entry.value)}</span>
           </div>
         ))}
       </div>
     );
   }
   return null;
-};
+}
 
 export function PerformanceChart() {
   const [range, setRange] = useState<Range>("1m");
   const { data: history = [], isLoading } = useGetPortfolioHistory({ range });
 
   return (
-    <div className="glass-panel rounded-2xl p-6 flex flex-col h-[400px]">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
+    <div className="glass-panel rounded-2xl p-4 md:p-6 flex flex-col h-[350px] md:h-[400px]">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 space-y-3 sm:space-y-0">
         <div>
           <h3 className="text-lg font-display text-foreground">Performance</h3>
-          <p className="text-sm text-muted-foreground">Portfolio value over time</p>
+          <p className="text-xs md:text-sm text-muted-foreground">Portfolio value over time</p>
         </div>
         
-        <div className="flex bg-card-border/50 p-1 rounded-lg">
+        <div className="flex flex-wrap bg-card-border/50 p-1 rounded-lg gap-1">
           {RANGES.map(r => (
             <button
               key={r.value}
               onClick={() => setRange(r.value)}
               className={cn(
-                "px-3 py-1 text-xs font-medium rounded-md transition-all",
+                "px-2 md:px-3 py-1 text-[10px] md:text-xs font-medium rounded-md transition-all flex-1 sm:flex-none",
                 range === r.value 
                   ? "bg-primary text-primary-foreground shadow-md" 
                   : "text-muted-foreground hover:text-foreground hover:bg-card-border"
@@ -103,18 +103,20 @@ export function PerformanceChart() {
                 dataKey="date" 
                 tickFormatter={(tick) => format(new Date(tick), "MMM dd")}
                 stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
+                fontSize={10}
                 tickMargin={10}
                 axisLine={false}
                 tickLine={false}
+                minTickGap={30}
               />
               <YAxis 
                 tickFormatter={(tick) => formatCompactINR(tick)}
                 stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
+                fontSize={10}
                 tickMargin={10}
                 axisLine={false}
                 tickLine={false}
+                width={50}
               />
               <Tooltip content={<CustomAreaTooltip />} />
               <Area 
@@ -122,9 +124,10 @@ export function PerformanceChart() {
                 dataKey="totalValue" 
                 name="Current Value"
                 stroke="hsl(var(--primary))" 
-                strokeWidth={3}
+                strokeWidth={2}
                 fillOpacity={1} 
                 fill="url(#colorValue)" 
+                activeDot={{ r: 4 }}
               />
               <Area 
                 type="monotone" 
@@ -166,10 +169,10 @@ export function AllocationChart({ holdings }: AllocationChartProps) {
   }
 
   return (
-    <div className="glass-panel rounded-2xl p-6 flex flex-col h-[400px]">
+    <div className="glass-panel rounded-2xl p-4 md:p-6 flex flex-col h-[350px] md:h-[400px]">
       <div className="mb-2">
         <h3 className="text-lg font-display text-foreground">Allocation</h3>
-        <p className="text-sm text-muted-foreground">Assets by current value</p>
+        <p className="text-xs md:text-sm text-muted-foreground">Assets by current value</p>
       </div>
       
       <div className="flex-1 min-h-0 relative flex items-center justify-center">
@@ -182,8 +185,8 @@ export function AllocationChart({ holdings }: AllocationChartProps) {
                 data={data}
                 cx="50%"
                 cy="50%"
-                innerRadius={60}
-                outerRadius={100}
+                innerRadius={50}
+                outerRadius={80}
                 paddingAngle={5}
                 dataKey="value"
                 stroke="none"
@@ -194,14 +197,15 @@ export function AllocationChart({ holdings }: AllocationChartProps) {
               </Pie>
               <Tooltip 
                 formatter={(value: number) => formatINR(value)}
-                contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
                 itemStyle={{ color: 'hsl(var(--foreground))' }}
               />
               <Legend 
                 verticalAlign="bottom" 
                 height={36} 
                 iconType="circle"
-                formatter={(value) => <span className="text-sm text-foreground">{value}</span>}
+                wrapperStyle={{ fontSize: '12px' }}
+                formatter={(value) => <span className="text-foreground">{value}</span>}
               />
             </PieChart>
           </ResponsiveContainer>

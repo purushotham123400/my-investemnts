@@ -1,0 +1,12 @@
+{
+  "name": "Portfolio Tracker",
+  "short_name": "Portfolio",
+  "description": "Track your stocks and crypto investments",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#3b82f6",
+  "icons": [
+    { "src": "/images/hero-bg.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
