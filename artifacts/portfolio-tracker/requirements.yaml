@@ -1,0 +1,17 @@
+packages:
+  "framer-motion": "For page transitions and scroll-triggered animations"
+  "recharts": "For portfolio performance line chart and allocation pie chart"
+  "clsx": "Utility for constructing className strings"
+  "tailwind-merge": "Utility for merging tailwind classes safely"
+  "date-fns": "For date formatting in charts"
+  "react-hook-form": "For robust form state management"
+  "@hookform/resolvers": "Zod validation integration with react-hook-form"
+
+images:
+  - path: "artifacts/portfolio-tracker/public/images/hero-bg.png"
+    description: "Abstract dark luxury gradient mesh background in deep slate and vibrant electric blue with soft light leaks"
+    aspect_ratio: "16:9"
+
+notes:
+  - Assumes standard generated Orval hooks available in @workspace/api-client-react
+  - Assumes shadcn UI components exist in src/components/ui/

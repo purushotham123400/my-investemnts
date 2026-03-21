@@ -1,15 +1,20 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Portfolio Tracker API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: holdings
+    description: Portfolio holdings operations
+  - name: prices
+    description: Market price operations
+  - name: history
+    description: Portfolio history operations
 paths:
   /healthz:
     get:
@@ -24,6 +29,167 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /holdings:
+    get:
+      operationId: getHoldings
+      tags: [holdings]
+      summary: Get all holdings
+      responses:
+        "200":
+          description: List of holdings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Holding"
+    post:
+      operationId: createHolding
+      tags: [holdings]
+      summary: Create a new holding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateHoldingInput"
+      responses:
+        "201":
+          description: Created holding
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Holding"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /holdings/{id}:
+    patch:
+      operationId: updateHolding
+      tags: [holdings]
+      summary: Update a holding (add/reduce shares, update note)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateHoldingInput"
+      responses:
+        "200":
+          description: Updated holding
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Holding"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteHolding
+      tags: [holdings]
+      summary: Delete a holding
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /prices:
+    get:
+      operationId: getMarketPrices
+      tags: [prices]
+      summary: Get current market prices for tickers and market indices
+      responses:
+        "200":
+          description: Current prices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketPrices"
+
+  /holdings/prices:
+    get:
+      operationId: getHoldingPrices
+      tags: [prices]
+      summary: Get current prices for all user holdings
+      responses:
+        "200":
+          description: Prices for all holdings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HoldingPrice"
+
+  /history:
+    get:
+      operationId: getPortfolioHistory
+      tags: [history]
+      summary: Get portfolio value history
+      parameters:
+        - name: range
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ["7d", "1m", "3m", "6m", "1y", "all"]
+            default: "1m"
+      responses:
+        "200":
+          description: Portfolio history data points
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HistoryPoint"
+    post:
+      operationId: recordPortfolioSnapshot
+      tags: [history]
+      summary: Record current portfolio snapshot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SnapshotInput"
+      responses:
+        "201":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HistoryPoint"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +200,192 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    Holding:
+      type: object
+      properties:
+        id:
+          type: integer
+        symbol:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [stock, crypto]
+        quantity:
+          type: number
+        avgBuyPrice:
+          type: number
+        note:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - symbol
+        - name
+        - type
+        - quantity
+        - avgBuyPrice
+        - note
+        - createdAt
+        - updatedAt
+
+    CreateHoldingInput:
+      type: object
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [stock, crypto]
+        quantity:
+          type: number
+        buyPrice:
+          type: number
+        note:
+          type: ["string", "null"]
+      required:
+        - symbol
+        - name
+        - type
+        - quantity
+        - buyPrice
+
+    UpdateHoldingInput:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [add, reduce, update_note]
+        quantity:
+          type: ["number", "null"]
+        buyPrice:
+          type: ["number", "null"]
+        note:
+          type: ["string", "null"]
+      required:
+        - action
+
+    MarketPrices:
+      type: object
+      properties:
+        nifty50:
+          $ref: "#/components/schemas/PriceData"
+        niftyIT:
+          $ref: "#/components/schemas/PriceData"
+        niftyBank:
+          $ref: "#/components/schemas/PriceData"
+        btc:
+          $ref: "#/components/schemas/PriceData"
+        eth:
+          $ref: "#/components/schemas/PriceData"
+        sol:
+          $ref: "#/components/schemas/PriceData"
+        sp500:
+          $ref: "#/components/schemas/PriceData"
+        nasdaq100:
+          $ref: "#/components/schemas/PriceData"
+        gold:
+          $ref: "#/components/schemas/PriceData"
+        lastUpdated:
+          type: string
+      required:
+        - nifty50
+        - niftyIT
+        - niftyBank
+        - btc
+        - eth
+        - sol
+        - sp500
+        - nasdaq100
+        - gold
+        - lastUpdated
+
+    PriceData:
+      type: object
+      properties:
+        price:
+          type: number
+        change:
+          type: number
+        changePercent:
+          type: number
+        label:
+          type: string
+      required:
+        - price
+        - change
+        - changePercent
+        - label
+
+    HoldingPrice:
+      type: object
+      properties:
+        symbol:
+          type: string
+        price:
+          type: number
+        change:
+          type: number
+        changePercent:
+          type: number
+      required:
+        - symbol
+        - price
+        - change
+        - changePercent
+
+    HistoryPoint:
+      type: object
+      properties:
+        id:
+          type: integer
+        date:
+          type: string
+        totalValue:
+          type: number
+        totalInvested:
+          type: number
+        profitLoss:
+          type: number
+      required:
+        - id
+        - date
+        - totalValue
+        - totalInvested
+        - profitLoss
+
+    SnapshotInput:
+      type: object
+      properties:
+        totalValue:
+          type: number
+        totalInvested:
+          type: number
+        profitLoss:
+          type: number
+      required:
+        - totalValue
+        - totalInvested
+        - profitLoss
