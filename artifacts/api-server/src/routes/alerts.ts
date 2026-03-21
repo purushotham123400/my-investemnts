@@ -1,9 +1,18 @@
 import { Router, type IRouter } from "express";
-import { db, priceAlertsTable, holdingsTable, priceCacheTable } from "@workspace/db";
+import { db, priceAlertsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { getHoldingCurrentPrices } from "./prices";
+import { sendAlertEmail } from "../lib/mailer";
 
 const router: IRouter = Router();
+
+function formatAlert(a: typeof priceAlertsTable.$inferSelect) {
+  return {
+    ...a,
+    triggeredAt: a.triggeredAt ? a.triggeredAt.toISOString() : null,
+    createdAt: a.createdAt.toISOString(),
+  };
+}
 
 router.get("/", async (req, res) => {
   try {
@@ -11,13 +20,7 @@ router.get("/", async (req, res) => {
       .select()
       .from(priceAlertsTable)
       .orderBy(priceAlertsTable.createdAt);
-    res.json(
-      alerts.map((a) => ({
-        ...a,
-        triggeredAt: a.triggeredAt ? a.triggeredAt.toISOString() : null,
-        createdAt: a.createdAt.toISOString(),
-      }))
-    );
+    res.json(alerts.map(formatAlert));
   } catch (err) {
     req.log.error({ err }, "Failed to get alerts");
     res.status(500).json({ error: "Failed to get alerts" });
@@ -48,11 +51,7 @@ router.post("/", async (req, res) => {
       })
       .returning();
 
-    res.status(201).json({
-      ...alert,
-      triggeredAt: alert.triggeredAt ? alert.triggeredAt.toISOString() : null,
-      createdAt: alert.createdAt.toISOString(),
-    });
+    res.status(201).json(formatAlert(alert));
   } catch (err) {
     req.log.error({ err }, "Failed to create alert");
     res.status(500).json({ error: "Failed to create alert" });
@@ -88,11 +87,7 @@ router.patch("/:id", async (req, res) => {
       .where(eq(priceAlertsTable.id, id))
       .returning();
 
-    res.json({
-      ...updated,
-      triggeredAt: updated.triggeredAt ? updated.triggeredAt.toISOString() : null,
-      createdAt: updated.createdAt.toISOString(),
-    });
+    res.json(formatAlert(updated));
   } catch (err) {
     req.log.error({ err }, "Failed to update alert");
     res.status(500).json({ error: "Failed to update alert" });
@@ -115,7 +110,7 @@ router.delete("/:id", async (req, res) => {
     await db.delete(priceAlertsTable).where(eq(priceAlertsTable.id, id));
     res.json({ message: "Alert deleted" });
   } catch (err) {
-    req.log.error({ err }, "Failed to delete alert" );
+    req.log.error({ err }, "Failed to delete alert");
     res.status(500).json({ error: "Failed to delete alert" });
   }
 });
@@ -136,6 +131,7 @@ router.post("/check", async (req, res) => {
     const priceMap = await getHoldingCurrentPrices(symbols);
 
     const triggered: typeof activeAlerts = [];
+    const emailPayloads: Parameters<typeof sendAlertEmail>[0] = [];
 
     for (const alert of activeAlerts) {
       const pd = priceMap.get(alert.symbol.toUpperCase());
@@ -151,17 +147,27 @@ router.post("/check", async (req, res) => {
           .set({ isTriggered: true, triggeredAt: new Date() })
           .where(eq(priceAlertsTable.id, alert.id))
           .returning();
+
         triggered.push(updated);
+
+        emailPayloads.push({
+          symbol: alert.symbol,
+          name: alert.name,
+          targetPrice: alert.targetPrice,
+          direction: alert.direction as "above" | "below",
+          currentPrice: pd.price,
+          triggeredAt: new Date().toISOString(),
+        });
       }
     }
 
-    res.json(
-      triggered.map((a) => ({
-        ...a,
-        triggeredAt: a.triggeredAt ? a.triggeredAt.toISOString() : null,
-        createdAt: a.createdAt.toISOString(),
-      }))
-    );
+    if (emailPayloads.length > 0) {
+      sendAlertEmail(emailPayloads).catch((err) =>
+        req.log.error({ err }, "Background email send failed")
+      );
+    }
+
+    res.json(triggered.map(formatAlert));
   } catch (err) {
     req.log.error({ err }, "Failed to check alerts");
     res.status(500).json({ error: "Failed to check alerts" });
