@@ -19,7 +19,10 @@ function createTransport() {
     return null;
   }
   return nodemailer.createTransport({
-    service: "gmail",
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false,
+    family: 4,
     auth: { user: smtpUser, pass: smtpPass },
   });
 }
