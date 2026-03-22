@@ -1,12 +1,15 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useGetMarketPrices } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatINR, cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Activity, RefreshCw } from "lucide-react";
 
 export function Ticker() {
-  const { data: marketPrices, isLoading, refetch, isFetching } = useGetMarketPrices({
+  const queryClient = useQueryClient();
+  const { data: marketPrices, isLoading } = useGetMarketPrices({
     query: { refetchInterval: 3600000 }
   });
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const animRef = useRef<number>(0);
   const isPaused = useRef(false);
@@ -33,6 +36,12 @@ export function Ticker() {
     const el = scrollRef.current;
     if (el) scrollPos.current = el.scrollLeft;
     isPaused.current = false;
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await queryClient.invalidateQueries();
+    setIsRefreshing(false);
   };
 
   if (isLoading) {
@@ -92,12 +101,12 @@ export function Ticker() {
       </div>
 
       <button
-        onClick={() => refetch()}
-        disabled={isFetching}
+        onClick={handleRefresh}
+        disabled={isRefreshing}
         className="flex-shrink-0 w-10 h-10 flex items-center justify-center hover:bg-white/10 transition-colors disabled:opacity-50"
-        title="Refresh prices"
+        title="Refresh all prices"
       >
-        <RefreshCw className={cn("w-4 h-4 text-primary", isFetching && "animate-spin")} />
+        <RefreshCw className={cn("w-4 h-4 text-primary", isRefreshing && "animate-spin")} />
       </button>
     </div>
   );
