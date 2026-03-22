@@ -190,8 +190,19 @@ export function AllocationChart({ holdings }: AllocationChartProps) {
                 paddingAngle={5}
                 dataKey="value"
                 stroke="none"
-                label={({ percent }) => percent > 0.04 ? `${(percent * 100).toFixed(0)}%` : ""}
-                labelLine={true}
+                label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                  if (percent < 0.08) return null;
+                  const RADIAN = Math.PI / 180;
+                  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                  return (
+                    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="bold">
+                      {`${(percent * 100).toFixed(0)}%`}
+                    </text>
+                  );
+                }}
+                labelLine={false}
               >
                 {data.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
