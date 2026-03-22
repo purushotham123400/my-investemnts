@@ -37,6 +37,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.use(express.static(path.join(__dirname, "../../../artifacts/portfolio-tracker/dist")));
-app.get("*", (_req, res) => {
+app.get(/.*/, (_req, res) => {
   res.sendFile(path.join(__dirname, "../../../artifacts/portfolio-tracker/dist/index.html"));
 });
