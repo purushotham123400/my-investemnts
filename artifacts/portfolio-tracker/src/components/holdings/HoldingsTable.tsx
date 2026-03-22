@@ -178,7 +178,10 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
                     </td>
                     <td className="p-4 text-right font-medium">{formatINR(h.avgBuyPrice)}</td>
                     <td className="p-4 text-right">{formatINR(h.totalInvested)}</td>
-                    <td className="p-4 text-right font-medium">{formatINR(h.currentValue)}</td>
+                    <td className="p-4 text-right">
+                      <div className="font-medium">{formatINR(h.currentValue)}</div>
+                      <div className="text-xs text-muted-foreground">@{formatINR(h.currentPrice)}</div>
+                    </td>
                     <td className="p-4 text-right">
                       <div className={cn("font-bold flex items-center justify-end space-x-1", isProfit ? "text-green-500" : "text-destructive")}>
                         {isProfit ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
@@ -250,6 +253,7 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
                 <div className="text-right">
                   <div className="text-muted-foreground text-[11px] uppercase tracking-wider mb-0.5">Current Val</div>
                   <div className="font-medium text-base">{formatINR(h.currentValue)}</div>
+                  <div className="text-[10px] text-muted-foreground">@{formatINR(h.currentPrice)}</div>
                 </div>
                 <div className="col-span-2 pt-2 mt-1 border-t border-border/50 flex justify-between items-center">
                   <div className="text-muted-foreground text-[11px] uppercase tracking-wider">P&L</div>

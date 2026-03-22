@@ -42,7 +42,13 @@ async function fetchCryptoPrice(coinId: string): Promise<{ price: number; change
 async function fetchYahooFinance(symbol: string): Promise<{ price: number; change: number; changePercent: number }> {
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
-    const res = await fetchWithTimeout(url);
+    const yfController = new AbortController();
+    const yfTimeout = setTimeout(() => yfController.abort(), 8000);
+    const res = await fetch(url, {
+      signal: yfController.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
+    });
+    clearTimeout(yfTimeout);
     const data = await res.json() as {
       chart?: {
         result?: Array<{

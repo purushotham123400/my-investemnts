@@ -1,3 +1,4 @@
+import { useRef, useEffect } from "react";
 import { useGetMarketPrices } from "@workspace/api-client-react";
 import { formatINR, cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Activity, RefreshCw } from "lucide-react";
@@ -6,6 +7,33 @@ export function Ticker() {
   const { data: marketPrices, isLoading, refetch, isFetching } = useGetMarketPrices({
     query: { refetchInterval: 3600000 }
   });
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const animRef = useRef<number>(0);
+  const isPaused = useRef(false);
+  const scrollPos = useRef(0);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !marketPrices) return;
+    const speed = 0.6;
+    const tick = () => {
+      if (!isPaused.current && el) {
+        scrollPos.current += speed;
+        if (scrollPos.current >= el.scrollWidth / 2) scrollPos.current = 0;
+        el.scrollLeft = scrollPos.current;
+      }
+      animRef.current = requestAnimationFrame(tick);
+    };
+    animRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animRef.current);
+  }, [marketPrices]);
+
+  const pause = () => { isPaused.current = true; };
+  const resume = () => {
+    const el = scrollRef.current;
+    if (el) scrollPos.current = el.scrollLeft;
+    isPaused.current = false;
+  };
 
   if (isLoading) {
     return (
@@ -34,9 +62,17 @@ export function Ticker() {
         <Activity className="w-4 h-4 text-primary" />
       </div>
 
-      <div className="flex-1 overflow-x-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-        <div className="flex whitespace-nowrap">
-          {prices.map((p, i) => {
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-x-auto"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', cursor: 'grab' }}
+        onMouseEnter={pause}
+        onMouseLeave={resume}
+        onTouchStart={pause}
+        onTouchEnd={resume}
+      >
+        <div className="flex whitespace-nowrap select-none">
+          {[...prices, ...prices].map((p, i) => {
             const isPositive = p.change >= 0;
             return (
               <div key={i} className="flex items-center space-x-3 px-6 border-r border-border/50 shrink-0">
