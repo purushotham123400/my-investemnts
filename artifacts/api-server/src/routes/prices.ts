@@ -22,7 +22,11 @@ async function fetchWithTimeout(url: string, timeoutMs = 8000): Promise<Response
 async function fetchCryptoPrice(coinId: string): Promise<{ price: number; change: number; changePercent: number }> {
   try {
     const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=inr&include_24hr_change=true`;
-    const res = await fetchWithTimeout(url);
+    const apiKey = process.env.COINGECKO_API_KEY ?? "";
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(url, { signal: controller.signal, headers: { "x-cg-demo-api-key": apiKey } });
+    clearTimeout(timeout);
     const data = await res.json() as Record<string, { inr: number; inr_24h_change: number }>;
     const coin = data[coinId];
     if (!coin) throw new Error("No data");
