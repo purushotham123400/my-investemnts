@@ -1,10 +1,10 @@
 import { useGetMarketPrices } from "@workspace/api-client-react";
 import { formatINR, cn } from "@/lib/utils";
-import { TrendingUp, TrendingDown, Activity } from "lucide-react";
+import { TrendingUp, TrendingDown, Activity, RefreshCw } from "lucide-react";
 
 export function Ticker() {
-  const { data: marketPrices, isLoading } = useGetMarketPrices({
-    query: { refetchInterval: 3600000 } // 1 hour
+  const { data: marketPrices, isLoading, refetch, isFetching } = useGetMarketPrices({
+    query: { refetchInterval: 3600000 }
   });
 
   if (isLoading) {
@@ -24,36 +24,45 @@ export function Ticker() {
 
   if (!marketPrices) return null;
 
-  // Extract all prices excluding the lastUpdated key
   const prices = Object.entries(marketPrices)
     .filter(([key]) => key !== 'lastUpdated')
     .map(([_, value]) => value as any);
 
   return (
-    <div className="fixed top-0 left-0 right-0 h-10 bg-card/95 backdrop-blur z-50 border-b border-border flex items-center overflow-hidden text-sm font-medium">
-      <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-card to-transparent z-10 flex items-center justify-center">
-        <Activity className="w-4 h-4 text-primary ml-2" />
+    <div className="fixed top-0 left-0 right-0 h-10 bg-card/95 backdrop-blur z-50 border-b border-border flex items-center text-sm font-medium">
+      <div className="flex-shrink-0 w-10 flex items-center justify-center">
+        <Activity className="w-4 h-4 text-primary" />
       </div>
-      
-      <div className="flex whitespace-nowrap animate-marquee">
-        {/* Render twice for seamless looping */}
-        {[...prices, ...prices].map((p, i) => {
-          const isPositive = p.change >= 0;
-          return (
-            <div key={i} className="flex items-center space-x-3 px-6 border-r border-border/50 shrink-0">
-              <span className="text-muted-foreground">{p.label}</span>
-              <span className="text-foreground">{formatINR(p.price)}</span>
-              <span className={cn(
-                "flex items-center space-x-1 text-xs px-1.5 py-0.5 rounded",
-                isPositive ? "text-green-400 bg-green-400/10" : "text-destructive bg-destructive/10"
-              )}>
-                {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                <span>{Math.abs(p.changePercent).toFixed(2)}%</span>
-              </span>
-            </div>
-          );
-        })}
+
+      <div className="flex-1 overflow-x-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <div className="flex whitespace-nowrap">
+          {prices.map((p, i) => {
+            const isPositive = p.change >= 0;
+            return (
+              <div key={i} className="flex items-center space-x-3 px-6 border-r border-border/50 shrink-0">
+                <span className="text-muted-foreground">{p.label}</span>
+                <span className="text-foreground">{formatINR(p.price)}</span>
+                <span className={cn(
+                  "flex items-center space-x-1 text-xs px-1.5 py-0.5 rounded",
+                  isPositive ? "text-green-400 bg-green-400/10" : "text-destructive bg-destructive/10"
+                )}>
+                  {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                  <span>{Math.abs(p.changePercent).toFixed(2)}%</span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
+
+      <button
+        onClick={() => refetch()}
+        disabled={isFetching}
+        className="flex-shrink-0 w-10 h-10 flex items-center justify-center hover:bg-white/10 transition-colors disabled:opacity-50"
+        title="Refresh prices"
+      >
+        <RefreshCw className={cn("w-4 h-4 text-primary", isFetching && "animate-spin")} />
+      </button>
     </div>
   );
 }

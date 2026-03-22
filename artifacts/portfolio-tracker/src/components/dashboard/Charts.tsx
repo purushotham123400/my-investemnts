@@ -190,6 +190,8 @@ export function AllocationChart({ holdings }: AllocationChartProps) {
                 paddingAngle={5}
                 dataKey="value"
                 stroke="none"
+                label={({ percent }) => percent > 0.04 ? `${(percent * 100).toFixed(0)}%` : ""}
+                labelLine={true}
               >
                 {data.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

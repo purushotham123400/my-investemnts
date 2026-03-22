@@ -142,7 +142,7 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
             <thead>
               <tr className="bg-card-border/30 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-card-border">
                 <th className="p-4 rounded-tl-2xl">Asset</th>
-                <th className="p-4">Price & Qty</th>
+                <th className="p-4">Current Price / Qty</th>
                 <th className="p-4 text-right">Avg Buy Price</th>
                 <th className="p-4 text-right">Invested</th>
                 <th className="p-4 text-right">Current Val</th>
