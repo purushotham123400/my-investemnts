@@ -174,4 +174,16 @@ router.post("/check", async (req, res) => {
   }
 });
 
+
+router.post("/test-email", async (req, res) => {
+  try {
+    const { sendTestEmail } = await import("../lib/mailer.js");
+    await sendTestEmail();
+    res.json({ success: true, message: "Test email sent" });
+  } catch (err) {
+    req.log.error({ err }, "Test email failed");
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 export default router;

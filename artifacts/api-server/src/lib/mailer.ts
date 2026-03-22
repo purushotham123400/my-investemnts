@@ -147,3 +147,14 @@ export async function sendAlertEmail(alerts: AlertEmailPayload[]): Promise<void>
     logger.error({ err }, "Failed to send alert email");
   }
 }
+
+export async function sendTestEmail(): Promise<void> {
+  const transport = createTransport();
+    throw new Error("SMTP not configured. Check SMTP_USER and SMTP_PASS in Render environment variables.");
+  }
+  await transport.sendMail({
+    from: `"Portfolio Tracker" <${smtpUser}>`,
+    to: recipientEmail,
+    subject: "Portfolio Tracker - Test Email",
+  });
+}
