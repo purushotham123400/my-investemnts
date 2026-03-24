@@ -1,6 +1,4 @@
 import { pgTable, text, serial, timestamp, doublePrecision, integer } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod/v4";
 
 export const deletedHoldingsTable = pgTable("deleted_holdings", {
   id: serial("id").primaryKey(),
@@ -15,6 +13,4 @@ export const deletedHoldingsTable = pgTable("deleted_holdings", {
   originalCreatedAt: timestamp("original_created_at", { withTimezone: true }).notNull(),
 });
 
-export const insertDeletedHoldingSchema = createInsertSchema(deletedHoldingsTable).omit({ id: true });
-export type InsertDeletedHolding = z.infer<typeof insertDeletedHoldingSchema>;
 export type DeletedHolding = typeof deletedHoldingsTable.$inferSelect;
