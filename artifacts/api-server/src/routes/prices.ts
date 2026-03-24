@@ -119,33 +119,29 @@ async function fetchAndCacheMarketPrices() {
             updatedAt: new Date(),
           },
         });
-    } catch (_err) {
-    }
+    } catch (_err) {}
   }
 
   return entries;
 }
 
 let lastFetch = 0;
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = 5 * 60 * 1000; // 5 min
 
 router.get("/", async (req, res) => {
   try {
     const now = Date.now();
+    const forceRefresh = req.query.force === "true";
     let entries;
 
-    if (now - lastFetch > CACHE_TTL) {
+    if (forceRefresh || now - lastFetch > CACHE_TTL) {
       lastFetch = now;
       entries = await fetchAndCacheMarketPrices();
     } else {
       const cached = await db.select().from(priceCacheTable);
       if (cached.length >= 9) {
         entries = cached.map((c) => ({
-          key: c.key,
-          label: c.label,
-          price: c.price,
-          change: c.change,
-          changePercent: c.changePercent,
+          key: c.key, label: c.label, price: c.price, change: c.change, changePercent: c.changePercent,
         }));
       } else {
         lastFetch = now;
@@ -180,22 +176,10 @@ export async function getHoldingCurrentPrices(symbols: string[]): Promise<Map<st
   const results = new Map<string, { price: number; change: number; changePercent: number }>();
 
   const CRYPTO_SYMBOLS: Record<string, string> = {
-    BTC: "bitcoin",
-    ETH: "ethereum",
-    SOL: "solana",
-    BNB: "binancecoin",
-    DOGE: "dogecoin",
-    XRP: "ripple",
-    ADA: "cardano",
-    AVAX: "avalanche-2",
-    DOT: "polkadot",
-    MATIC: "matic-network",
-    LINK: "chainlink",
-    LTC: "litecoin",
-    UNI: "uniswap",
-    SHIB: "shiba-inu",
-    TRX: "tron",
-    ATOM: "cosmos",
+    BTC: "bitcoin", ETH: "ethereum", SOL: "solana", BNB: "binancecoin",
+    DOGE: "dogecoin", XRP: "ripple", ADA: "cardano", AVAX: "avalanche-2",
+    DOT: "polkadot", MATIC: "matic-network", LINK: "chainlink", LTC: "litecoin",
+    UNI: "uniswap", SHIB: "shiba-inu", TRX: "tron", ATOM: "cosmos",
   };
 
   await Promise.all(
@@ -225,17 +209,10 @@ router.get("/holdings", async (req, res) => {
     const holdings = await db.select().from(holdingsTable);
     const symbols = holdings.map((h) => h.symbol);
     const priceMap = await getHoldingCurrentPrices(symbols);
-
     const result = holdings.map((h) => {
       const pd = priceMap.get(h.symbol.toUpperCase()) ?? { price: 0, change: 0, changePercent: 0 };
-      return {
-        symbol: h.symbol,
-        price: pd.price,
-        change: pd.change,
-        changePercent: pd.changePercent,
-      };
+      return { symbol: h.symbol, price: pd.price, change: pd.change, changePercent: pd.changePercent };
     });
-
     res.json(result);
   } catch (err) {
     req.log.error({ err }, "Failed to get holding prices");
