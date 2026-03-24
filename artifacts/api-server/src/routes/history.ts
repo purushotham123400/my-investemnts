@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, portfolioHistoryTable } from "@workspace/db";
-import { gte, desc } from "drizzle-orm";
+import { gte, desc, eq } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -68,6 +68,7 @@ router.post("/", async (req, res) => {
       const [updated] = await db
         .update(portfolioHistoryTable)
         .set({ totalValue, totalInvested, profitLoss })
+        .where(eq(portfolioHistoryTable.id, todayRecord.id))
         .returning();
       res.status(201).json(updated);
       return;
