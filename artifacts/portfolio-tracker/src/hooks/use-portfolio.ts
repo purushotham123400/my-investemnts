@@ -14,14 +14,14 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useDayPrices } from "@/hooks/use-day-prices";
 
-// Fetch holdings & prices, and compute enriched metrics
 export function usePortfolio() {
-  // Update holdings prices every 1 hour (3600000 ms)
   const holdingsQuery = useGetHoldings();
   const pricesQuery = useGetHoldingPrices({
-    query: { refetchInterval: 3600000 }
+    query: { refetchInterval: 1000 * 60 * 15 } // every 15 min
   });
+  const { data: dayPricesMap = {} } = useDayPrices();
 
   const rawHoldings = holdingsQuery.data || [];
   const rawPrices = pricesQuery.data || [];
@@ -35,6 +35,12 @@ export function usePortfolio() {
       const profitLoss = currentValue - totalInvested;
       const profitLossPercent = totalInvested > 0 ? (profitLoss / totalInvested) * 100 : 0;
 
+      // Today's P/L: (current price - yesterday close price) * quantity
+      const dayPriceEntry = dayPricesMap[h.symbol.toUpperCase()];
+      const dayOpenPrice = dayPriceEntry?.price ?? null;
+      const todayPL = dayOpenPrice !== null ? (currentPrice - dayOpenPrice) * h.quantity : null;
+      const todayPLPercent = dayOpenPrice !== null && dayOpenPrice > 0 ? ((currentPrice - dayOpenPrice) / dayOpenPrice) * 100 : null;
+
       return {
         ...h,
         currentPrice,
@@ -43,29 +49,42 @@ export function usePortfolio() {
         profitLoss,
         profitLossPercent,
         change: priceData.change,
-        changePercent: priceData.changePercent
+        changePercent: priceData.changePercent,
+        todayPL,
+        todayPLPercent,
       };
     });
-  }, [rawHoldings, rawPrices]);
+  }, [rawHoldings, rawPrices, dayPricesMap]);
 
   const totals = useMemo(() => {
     let totalInvested = 0;
     let currentValue = 0;
-    
+    let todayPLSum = 0;
+    let hasTodayPL = false;
+
     holdings.forEach(h => {
       totalInvested += h.totalInvested;
       currentValue += h.currentValue;
+      if (h.todayPL !== null) {
+        todayPLSum += h.todayPL;
+        hasTodayPL = true;
+      }
     });
-    
+
     const profitLoss = currentValue - totalInvested;
     const profitLossPercent = totalInvested > 0 ? (profitLoss / totalInvested) * 100 : 0;
-    
+    const todayPLTotal = hasTodayPL ? todayPLSum : null;
+    const prevTotalValue = hasTodayPL ? (currentValue - todayPLSum) : currentValue;
+    const todayPLPercent = hasTodayPL && prevTotalValue > 0 ? (todayPLSum / prevTotalValue) * 100 : null;
+
     return {
       totalInvested,
       currentValue,
       profitLoss,
       profitLossPercent,
-      holdingCount: holdings.length
+      holdingCount: holdings.length,
+      todayPLTotal,
+      todayPLPercent,
     };
   }, [holdings]);
 
@@ -77,7 +96,6 @@ export function usePortfolio() {
   };
 }
 
-// Handle all portfolio mutations + auto-snapshot
 export function usePortfolioMutations() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -85,7 +103,6 @@ export function usePortfolioMutations() {
 
   const captureSnapshot = async () => {
     try {
-      // Re-fetch directly to bypass stale cache issues during calculations
       const [freshHoldings, freshPrices] = await Promise.all([
         getHoldings(),
         getHoldingPrices()
@@ -122,10 +139,10 @@ export function usePortfolioMutations() {
   };
 
   const handleError = (error: any) => {
-    toast({ 
-      title: "Error", 
-      description: error?.data?.error || error.message || "An unexpected error occurred", 
-      variant: "destructive" 
+    toast({
+      title: "Error",
+      description: error?.data?.error || error.message || "An unexpected error occurred",
+      variant: "destructive"
     });
   };
 
@@ -145,12 +162,11 @@ export function usePortfolioMutations() {
 
   const deleteHolding = useDeleteHolding({
     mutation: {
-      onSuccess: () => handleSuccess("Holding removed from portfolio."),
+      onSuccess: () => handleSuccess("Holding moved to bin."),
       onError: handleError
     }
   });
 
-  // Specifically for silent note updates (no snapshot needed, just invalidate list)
   const updateNote = useUpdateHolding({
     mutation: {
       onSuccess: async () => {
