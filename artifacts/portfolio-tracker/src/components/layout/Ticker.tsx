@@ -90,7 +90,7 @@ export function Ticker() {
       >
         <div className="flex whitespace-nowrap select-none">
           {[...prices, ...prices].map((p, i) => {
-            const isPositive = p.change >= 0;
+            const isPositive = p.changePercent >= 0;
             return (
               <div key={i} className="flex items-center space-x-3 px-6 border-r border-border/50 shrink-0">
                 <span className="text-muted-foreground">{p.label}</span>
