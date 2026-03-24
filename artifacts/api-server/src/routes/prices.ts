@@ -94,19 +94,67 @@ async function fetchCryptoPrice(coinId: string): Promise<{ price: number; change
   }
 }
 
+// Twelve Data API - used for S&P 500, Nasdaq 100, and Gold
+// Symbols: SPX = S&P 500, NDX = Nasdaq 100, XAU/USD = Gold (in USD/oz)
+// All prices are in USD, converted to INR before returning
+async function fetchTwelveDataQuotes(): Promise<{
+  sp500: { price: number; change: number; changePercent: number };
+  nasdaq100: { price: number; change: number; changePercent: number };
+  gold: { price: number; change: number; changePercent: number };
+}> {
+  const zero = { price: 0, change: 0, changePercent: 0 };
+  const apiKey = process.env.TWELVE_DATA_API_KEY;
+  if (!apiKey) return { sp500: zero, nasdaq100: zero, gold: zero };
+
+  try {
+    const symbols = "SPX,NDX,XAU/USD";
+    const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbols)}&apikey=${apiKey}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return { sp500: zero, nasdaq100: zero, gold: zero };
+
+    const data = await res.json() as Record<string, any>;
+
+    function parseQuote(q: any): { price: number; change: number; changePercent: number } {
+      if (!q || q.status === "error" || !q.close) return zero;
+      const price = parseFloat(q.close) * USD_TO_INR;
+      const prevClose = parseFloat(q.previous_close ?? q.close) * USD_TO_INR;
+      const change = price - prevClose;
+      const changePercent = parseFloat(q.percent_change ?? "0");
+      return { price, change, changePercent };
+    }
+
+    return {
+      sp500: parseQuote(data["SPX"]),
+      nasdaq100: parseQuote(data["NDX"]),
+      gold: parseQuote(data["XAU/USD"]),
+    };
+  } catch {
+    return { sp500: zero, nasdaq100: zero, gold: zero };
+  }
+}
+
 async function fetchAndCacheMarketPrices() {
-  // Indian indices: use v8 chart (works well for NSE)
-  // Global indices + commodities: use v7 quote (less restricted)
-  const [nifty50, niftyIT, niftyBank, sp500, nasdaq100, gold, btc, eth, sol] = await Promise.all([
+  // Indian indices: Yahoo Finance v8 chart (works well for NSE)
+  // Crypto: CoinGecko
+  // S&P 500, Nasdaq 100, Gold: Twelve Data (falls back to Yahoo if key not set or fetch fails)
+  const [nifty50, niftyIT, niftyBank, twelveData, btc, eth, sol] = await Promise.all([
     fetchYahooV8Chart("^NSEI"),
     fetchYahooV8Chart("^CNXIT"),
     fetchYahooV8Chart("^NSEBANK"),
-    fetchYahooV7Quote("^GSPC"),
-    fetchYahooV7Quote("^NDX"),
-    fetchYahooV7Quote("GC=F"),
+    fetchTwelveDataQuotes(),
     fetchCryptoPrice("bitcoin"),
     fetchCryptoPrice("ethereum"),
     fetchCryptoPrice("solana"),
+  ]);
+
+  // Fall back to Yahoo Finance if Twelve Data returned zero prices
+  const [sp500, nasdaq100, gold] = await Promise.all([
+    twelveData.sp500.price > 0 ? Promise.resolve(twelveData.sp500) : fetchYahooV7Quote("^GSPC"),
+    twelveData.nasdaq100.price > 0 ? Promise.resolve(twelveData.nasdaq100) : fetchYahooV7Quote("^NDX"),
+    twelveData.gold.price > 0 ? Promise.resolve(twelveData.gold) : fetchYahooV7Quote("GC=F"),
   ]);
 
   const fresh = [
