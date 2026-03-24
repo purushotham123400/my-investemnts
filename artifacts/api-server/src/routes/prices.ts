@@ -153,8 +153,8 @@ async function fetchAndCacheMarketPrices() {
 
   // Fall back to Yahoo Finance if Twelve Data returned zero prices
   const [sp500, nasdaq100, gold] = await Promise.all([
-    twelveData.sp500.price > 0 ? Promise.resolve(twelveData.sp500) : fetchYahooV7Quote("^GSPC"),
-    twelveData.nasdaq100.price > 0 ? Promise.resolve(twelveData.nasdaq100) : fetchYahooV7Quote("^NDX"),
+    twelveData.sp500.price > 0 ? Promise.resolve(twelveData.sp500) : fetchYahooV7Quote("SPY"),
+    twelveData.nasdaq100.price > 0 ? Promise.resolve(twelveData.nasdaq100) : fetchYahooV7Quote("QQQ"),
     twelveData.gold.price > 0 ? Promise.resolve(twelveData.gold) : fetchYahooV7Quote("GC=F"),
   ]);
 
@@ -164,12 +164,12 @@ async function fetchAndCacheMarketPrices() {
   const sp500Adjusted = {
     price: sp500.price * 10,
     change: sp500.change * 10,
-    changePercent: sp500.changePercent + (sp500.changePercent >= 0 ? 0.10 : -0.10),
+    changePercent: sp500.changePercent,
   };
   const nasdaq100Adjusted = {
     price: nasdaq100.price * 40,
     change: nasdaq100.change * 40,
-    changePercent: nasdaq100.changePercent + (nasdaq100.changePercent >= 0 ? 0.20 : -0.20),
+    changePercent: nasdaq100.changePercent,
   };
 
   const fresh = [
