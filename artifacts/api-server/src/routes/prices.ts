@@ -1,10 +1,78 @@
 import { Router, type IRouter } from "express";
 import { db, holdingsTable, priceCacheTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
 
 const router: IRouter = Router();
-
 const USD_TO_INR = 83.5;
+
+// Yahoo Finance v7 quote API - works for indices & commodities
+async function fetchYahooV7Quote(symbol: string): Promise<{ price: number; change: number; changePercent: number }> {
+  for (const host of ["query1.finance.yahoo.com", "query2.finance.yahoo.com"]) {
+    try {
+      const url = `https://${host}/v7/finance/quote?symbols=${encodeURIComponent(symbol)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,currency`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer': 'https://finance.yahoo.com/',
+        }
+      });
+      clearTimeout(timeout);
+      if (!res.ok) continue;
+      const data = await res.json() as any;
+      const quote = data?.quoteResponse?.result?.[0];
+      if (!quote?.regularMarketPrice) continue;
+
+      let price = quote.regularMarketPrice;
+      let change = quote.regularMarketChange ?? 0;
+      const changePercent = quote.regularMarketChangePercent ?? 0;
+
+      if (quote.currency === "USD" || !quote.currency) {
+        price = price * USD_TO_INR;
+        change = change * USD_TO_INR;
+      }
+      return { price, change, changePercent };
+    } catch { continue; }
+  }
+  return { price: 0, change: 0, changePercent: 0 };
+}
+
+// Yahoo Finance v8 chart API - works well for Indian indices
+async function fetchYahooV8Chart(symbol: string): Promise<{ price: number; change: number; changePercent: number }> {
+  for (const host of ["query1.finance.yahoo.com", "query2.finance.yahoo.com"]) {
+    try {
+      const url = `https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'application/json',
+          'Referer': 'https://finance.yahoo.com/',
+        }
+      });
+      clearTimeout(timeout);
+      if (!res.ok) continue;
+      const data = await res.json() as any;
+      const meta = data?.chart?.result?.[0]?.meta;
+      if (!meta?.regularMarketPrice) continue;
+      let price = meta.regularMarketPrice;
+      const prevClose = meta.chartPreviousClose ?? price;
+      const currency = meta.currency ?? "INR";
+      if (currency === "USD") {
+        price = price * USD_TO_INR;
+        const prevCloseInr = prevClose * USD_TO_INR;
+        return { price, change: price - prevCloseInr, changePercent: prevClose ? ((price - prevCloseInr) / prevCloseInr) * 100 : 0 };
+      }
+      return { price, change: price - prevClose, changePercent: prevClose ? ((price - prevClose) / prevClose) * 100 : 0 };
+    } catch { continue; }
+  }
+  return { price: 0, change: 0, changePercent: 0 };
+}
 
 async function fetchCryptoPrice(coinId: string): Promise<{ price: number; change: number; changePercent: number }> {
   try {
@@ -26,63 +94,22 @@ async function fetchCryptoPrice(coinId: string): Promise<{ price: number; change
   }
 }
 
-async function fetchYahooFinance(symbol: string): Promise<{ price: number; change: number; changePercent: number }> {
-  // Try query1 first, then query2 as fallback
-  for (const host of ["query1.finance.yahoo.com", "query2.finance.yahoo.com"]) {
-    try {
-      const url = `https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-      const res = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json',
-        }
-      });
-      clearTimeout(timeout);
-      if (!res.ok) continue;
-      const data = await res.json() as {
-        chart?: { result?: Array<{ meta?: { regularMarketPrice?: number; chartPreviousClose?: number; currency?: string } }> };
-      };
-      const meta = data?.chart?.result?.[0]?.meta;
-      if (!meta?.regularMarketPrice) continue;
-
-      let price = meta.regularMarketPrice;
-      const prevClose = meta.chartPreviousClose ?? price;
-      const currency = meta.currency ?? "USD";
-
-      if (currency === "USD") {
-        price = price * USD_TO_INR;
-        const prevCloseInr = prevClose * USD_TO_INR;
-        const change = price - prevCloseInr;
-        const changePercent = prevClose ? ((price - prevCloseInr) / prevCloseInr) * 100 : 0;
-        return { price, change, changePercent };
-      }
-      const change = price - prevClose;
-      const changePercent = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
-      return { price, change, changePercent };
-    } catch {
-      continue;
-    }
-  }
-  return { price: 0, change: 0, changePercent: 0 };
-}
-
 async function fetchAndCacheMarketPrices() {
+  // Indian indices: use v8 chart (works well for NSE)
+  // Global indices + commodities: use v7 quote (less restricted)
   const [nifty50, niftyIT, niftyBank, sp500, nasdaq100, gold, btc, eth, sol] = await Promise.all([
-    fetchYahooFinance("^NSEI"),
-    fetchYahooFinance("^CNXIT"),
-    fetchYahooFinance("^NSEBANK"),
-    fetchYahooFinance("^GSPC"),
-    fetchYahooFinance("^NDX"),
-    fetchYahooFinance("GC=F"),
+    fetchYahooV8Chart("^NSEI"),
+    fetchYahooV8Chart("^CNXIT"),
+    fetchYahooV8Chart("^NSEBANK"),
+    fetchYahooV7Quote("^GSPC"),
+    fetchYahooV7Quote("^NDX"),
+    fetchYahooV7Quote("GC=F"),
     fetchCryptoPrice("bitcoin"),
     fetchCryptoPrice("ethereum"),
     fetchCryptoPrice("solana"),
   ]);
 
-  const entries = [
+  const fresh = [
     { key: "nifty50", label: "Nifty 50", ...nifty50 },
     { key: "niftyIT", label: "Nifty IT", ...niftyIT },
     { key: "niftyBank", label: "Nifty Bank", ...niftyBank },
@@ -94,31 +121,30 @@ async function fetchAndCacheMarketPrices() {
     { key: "gold", label: "Gold", ...gold },
   ];
 
-  // Only update DB cache for entries with a valid (non-zero) price
-  for (const entry of entries) {
-    if (entry.price === 0) continue; // keep old cached value rather than overwriting with 0
-    try {
-      await db
-        .insert(priceCacheTable)
-        .values(entry)
-        .onConflictDoUpdate({
-          target: priceCacheTable.key,
-          set: { price: entry.price, change: entry.change, changePercent: entry.changePercent, label: entry.label, updatedAt: new Date() },
-        });
-    } catch (_err) {}
-  }
-
-  // For entries that returned 0, fall back to DB cache
+  // Get existing cached values to use as fallback for 0-price entries
   const cached = await db.select().from(priceCacheTable);
   const cacheMap: Record<string, typeof cached[0]> = {};
   for (const c of cached) cacheMap[c.key] = c;
 
-  return entries.map(e => ({
+  const entries = fresh.map(e => ({
     ...e,
     price: e.price > 0 ? e.price : (cacheMap[e.key]?.price ?? 0),
     change: e.price > 0 ? e.change : (cacheMap[e.key]?.change ?? 0),
     changePercent: e.price > 0 ? e.changePercent : (cacheMap[e.key]?.changePercent ?? 0),
   }));
+
+  // Only cache entries with a valid price
+  for (const entry of entries) {
+    if (entry.price === 0) continue;
+    try {
+      await db.insert(priceCacheTable).values(entry).onConflictDoUpdate({
+        target: priceCacheTable.key,
+        set: { price: entry.price, change: entry.change, changePercent: entry.changePercent, label: entry.label, updatedAt: new Date() },
+      });
+    } catch (_err) {}
+  }
+
+  return entries;
 }
 
 let lastFetch = 0;
@@ -136,7 +162,7 @@ router.get("/", async (req, res) => {
     } else {
       const cached = await db.select().from(priceCacheTable);
       if (cached.length >= 9) {
-        entries = cached.map((c) => ({ key: c.key, label: c.label, price: c.price, change: c.change, changePercent: c.changePercent }));
+        entries = cached.map(c => ({ key: c.key, label: c.label, price: c.price, change: c.change, changePercent: c.changePercent }));
       } else {
         lastFetch = now;
         entries = await fetchAndCacheMarketPrices();
@@ -178,14 +204,13 @@ export async function getHoldingCurrentPrices(symbols: string[]): Promise<Map<st
     symbols.map(async (symbol) => {
       const upperSym = symbol.toUpperCase();
       if (CRYPTO_SYMBOLS[upperSym]) {
-        const data = await fetchCryptoPrice(CRYPTO_SYMBOLS[upperSym]);
-        results.set(upperSym, data);
+        results.set(upperSym, await fetchCryptoPrice(CRYPTO_SYMBOLS[upperSym]));
       } else {
         const yahooSymbol = upperSym.endsWith(".NS") ? upperSym : `${upperSym}.NS`;
-        const data = await fetchYahooFinance(yahooSymbol);
+        const data = await fetchYahooV8Chart(yahooSymbol);
         if (data.price === 0) {
-          const directData = await fetchYahooFinance(upperSym);
-          results.set(upperSym, directData);
+          const direct = await fetchYahooV8Chart(upperSym);
+          results.set(upperSym, direct.price > 0 ? direct : await fetchYahooV7Quote(upperSym));
         } else {
           results.set(upperSym, data);
         }
@@ -199,9 +224,8 @@ export async function getHoldingCurrentPrices(symbols: string[]): Promise<Map<st
 router.get("/holdings", async (req, res) => {
   try {
     const holdings = await db.select().from(holdingsTable);
-    const symbols = holdings.map((h) => h.symbol);
-    const priceMap = await getHoldingCurrentPrices(symbols);
-    const result = holdings.map((h) => {
+    const priceMap = await getHoldingCurrentPrices(holdings.map(h => h.symbol));
+    const result = holdings.map(h => {
       const pd = priceMap.get(h.symbol.toUpperCase()) ?? { price: 0, change: 0, changePercent: 0 };
       return { symbol: h.symbol, price: pd.price, change: pd.change, changePercent: pd.changePercent };
     });
