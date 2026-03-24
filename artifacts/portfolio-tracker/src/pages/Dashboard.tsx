@@ -3,6 +3,7 @@ import { SummaryCards } from "@/components/dashboard/SummaryCards";
 import { PerformanceChart, AllocationChart } from "@/components/dashboard/Charts";
 import { HoldingsTable } from "@/components/holdings/HoldingsTable";
 import { AddHoldingDialog } from "@/components/holdings/HoldingForms";
+import { BinPanel } from "@/components/holdings/BinPanel";
 import { usePortfolio } from "@/hooks/use-portfolio";
 import { motion } from "framer-motion";
 
@@ -11,21 +12,16 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30 relative">
-      {/* Background Decor - Abstract Glow */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
         <div className="absolute top-[-20%] left-[-10%] w-[80%] md:w-[50%] h-[50%] rounded-full bg-primary/10 blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[60%] md:w-[40%] h-[40%] rounded-full bg-accent/5 blur-[100px]" />
         <img src={`${import.meta.env.BASE_URL}images/hero-bg.png`} alt="" className="absolute inset-0 w-full h-full object-cover opacity-10 mix-blend-overlay" />
       </div>
 
-      {/* Fixed Header / Ticker */}
       <Ticker />
 
-      {/* Main Content */}
       <main className="relative z-10 pt-14 md:pt-16 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 overflow-x-hidden">
-        
-        {/* Header Section */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-6 md:mb-8 mt-4 md:mt-6 space-y-4 sm:space-y-0"
@@ -36,16 +32,16 @@ export default function Dashboard() {
             </h1>
             <p className="text-muted-foreground mt-1 text-sm md:text-base">Track your investments and performance in real-time.</p>
           </div>
-          <div className="w-full sm:w-auto">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <BinPanel />
             <AddHoldingDialog />
           </div>
         </motion.div>
 
-        {/* Dashboard Sections */}
         <div className="space-y-6 md:space-y-8">
           <SummaryCards totals={totals} isLoading={isLoading} />
-          
-          <motion.div 
+
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
@@ -71,7 +67,6 @@ export default function Dashboard() {
             <HoldingsTable holdings={holdings} />
           </motion.div>
         </div>
-        
       </main>
     </div>
   );
