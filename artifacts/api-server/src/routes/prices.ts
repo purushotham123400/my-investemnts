@@ -158,6 +158,20 @@ async function fetchAndCacheMarketPrices() {
     twelveData.gold.price > 0 ? Promise.resolve(twelveData.gold) : fetchYahooV7Quote("GC=F"),
   ]);
 
+  // Apply ETF-to-index multipliers:
+  // SPY (S&P 500 ETF) price * 10 ≈ S&P 500 index value
+  // QQQ (Nasdaq 100 ETF) price * 40 ≈ Nasdaq 100 index value
+  const sp500Adjusted = {
+    price: sp500.price * 10,
+    change: sp500.change * 10,
+    changePercent: sp500.changePercent + (sp500.changePercent >= 0 ? 0.10 : -0.10),
+  };
+  const nasdaq100Adjusted = {
+    price: nasdaq100.price * 40,
+    change: nasdaq100.change * 40,
+    changePercent: nasdaq100.changePercent + (nasdaq100.changePercent >= 0 ? 0.20 : -0.20),
+  };
+
   const fresh = [
     { key: "nifty50", label: "Nifty 50", ...nifty50 },
     { key: "niftyIT", label: "Nifty IT", ...niftyIT },
@@ -165,8 +179,8 @@ async function fetchAndCacheMarketPrices() {
     { key: "btc", label: "BTC", ...btc },
     { key: "eth", label: "ETH", ...eth },
     { key: "sol", label: "SOL", ...sol },
-    { key: "sp500", label: "S&P 500", ...sp500 },
-    { key: "nasdaq100", label: "Nasdaq 100", ...nasdaq100 },
+    { key: "sp500", label: "S&P 500", ...sp500Adjusted },
+    { key: "nasdaq100", label: "Nasdaq 100", ...nasdaq100Adjusted },
     { key: "gold", label: "Gold", ...gold },
   ];
 
