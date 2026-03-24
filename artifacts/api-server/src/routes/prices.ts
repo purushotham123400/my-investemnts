@@ -6,19 +6,6 @@ const router: IRouter = Router();
 
 const USD_TO_INR = 83.5;
 
-async function fetchWithTimeout(url: string, timeoutMs = 8000): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-    return response;
-  } catch (err) {
-    clearTimeout(timeout);
-    throw err;
-  }
-}
-
 async function fetchCryptoPrice(coinId: string): Promise<{ price: number; change: number; changePercent: number }> {
   try {
     const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=inr&include_24hr_change=true`;
@@ -40,43 +27,46 @@ async function fetchCryptoPrice(coinId: string): Promise<{ price: number; change
 }
 
 async function fetchYahooFinance(symbol: string): Promise<{ price: number; change: number; changePercent: number }> {
-  try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
-    const yfController = new AbortController();
-    const yfTimeout = setTimeout(() => yfController.abort(), 8000);
-    const res = await fetch(url, {
-      signal: yfController.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
-    });
-    clearTimeout(yfTimeout);
-    const data = await res.json() as {
-      chart?: {
-        result?: Array<{
-          meta?: { regularMarketPrice?: number; chartPreviousClose?: number; currency?: string };
-        }>;
+  // Try query1 first, then query2 as fallback
+  for (const host of ["query1.finance.yahoo.com", "query2.finance.yahoo.com"]) {
+    try {
+      const url = `https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json',
+        }
+      });
+      clearTimeout(timeout);
+      if (!res.ok) continue;
+      const data = await res.json() as {
+        chart?: { result?: Array<{ meta?: { regularMarketPrice?: number; chartPreviousClose?: number; currency?: string } }> };
       };
-    };
-    const meta = data?.chart?.result?.[0]?.meta;
-    if (!meta?.regularMarketPrice) throw new Error("No price data");
+      const meta = data?.chart?.result?.[0]?.meta;
+      if (!meta?.regularMarketPrice) continue;
 
-    let price = meta.regularMarketPrice;
-    const prevClose = meta.chartPreviousClose ?? price;
-    const currency = meta.currency ?? "USD";
+      let price = meta.regularMarketPrice;
+      const prevClose = meta.chartPreviousClose ?? price;
+      const currency = meta.currency ?? "USD";
 
-    if (currency === "USD") {
-      price = price * USD_TO_INR;
-      const prevCloseInr = prevClose * USD_TO_INR;
-      const change = price - prevCloseInr;
-      const changePercent = prevClose ? ((price - prevCloseInr) / prevCloseInr) * 100 : 0;
+      if (currency === "USD") {
+        price = price * USD_TO_INR;
+        const prevCloseInr = prevClose * USD_TO_INR;
+        const change = price - prevCloseInr;
+        const changePercent = prevClose ? ((price - prevCloseInr) / prevCloseInr) * 100 : 0;
+        return { price, change, changePercent };
+      }
+      const change = price - prevClose;
+      const changePercent = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
       return { price, change, changePercent };
+    } catch {
+      continue;
     }
-
-    const change = price - prevClose;
-    const changePercent = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
-    return { price, change, changePercent };
-  } catch {
-    return { price: 0, change: 0, changePercent: 0 };
   }
+  return { price: 0, change: 0, changePercent: 0 };
 }
 
 async function fetchAndCacheMarketPrices() {
@@ -104,29 +94,35 @@ async function fetchAndCacheMarketPrices() {
     { key: "gold", label: "Gold", ...gold },
   ];
 
+  // Only update DB cache for entries with a valid (non-zero) price
   for (const entry of entries) {
+    if (entry.price === 0) continue; // keep old cached value rather than overwriting with 0
     try {
       await db
         .insert(priceCacheTable)
         .values(entry)
         .onConflictDoUpdate({
           target: priceCacheTable.key,
-          set: {
-            price: entry.price,
-            change: entry.change,
-            changePercent: entry.changePercent,
-            label: entry.label,
-            updatedAt: new Date(),
-          },
+          set: { price: entry.price, change: entry.change, changePercent: entry.changePercent, label: entry.label, updatedAt: new Date() },
         });
     } catch (_err) {}
   }
 
-  return entries;
+  // For entries that returned 0, fall back to DB cache
+  const cached = await db.select().from(priceCacheTable);
+  const cacheMap: Record<string, typeof cached[0]> = {};
+  for (const c of cached) cacheMap[c.key] = c;
+
+  return entries.map(e => ({
+    ...e,
+    price: e.price > 0 ? e.price : (cacheMap[e.key]?.price ?? 0),
+    change: e.price > 0 ? e.change : (cacheMap[e.key]?.change ?? 0),
+    changePercent: e.price > 0 ? e.changePercent : (cacheMap[e.key]?.changePercent ?? 0),
+  }));
 }
 
 let lastFetch = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5 min
+const CACHE_TTL = 5 * 60 * 1000;
 
 router.get("/", async (req, res) => {
   try {
@@ -140,9 +136,7 @@ router.get("/", async (req, res) => {
     } else {
       const cached = await db.select().from(priceCacheTable);
       if (cached.length >= 9) {
-        entries = cached.map((c) => ({
-          key: c.key, label: c.label, price: c.price, change: c.change, changePercent: c.changePercent,
-        }));
+        entries = cached.map((c) => ({ key: c.key, label: c.label, price: c.price, change: c.change, changePercent: c.changePercent }));
       } else {
         lastFetch = now;
         entries = await fetchAndCacheMarketPrices();
@@ -150,9 +144,7 @@ router.get("/", async (req, res) => {
     }
 
     const map: Record<string, { price: number; change: number; changePercent: number; label: string }> = {};
-    for (const e of entries) {
-      map[e.key] = { price: e.price, change: e.change, changePercent: e.changePercent, label: e.label };
-    }
+    for (const e of entries) map[e.key] = { price: e.price, change: e.change, changePercent: e.changePercent, label: e.label };
 
     res.json({
       nifty50: map["nifty50"] ?? { price: 0, change: 0, changePercent: 0, label: "Nifty 50" },
