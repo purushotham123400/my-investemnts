@@ -95,7 +95,8 @@ async function fetchCryptoPrice(coinId: string): Promise<{ price: number; change
 }
 
 // Twelve Data API - used for S&P 500, Nasdaq 100, and Gold
-// Symbols: SPX = S&P 500, NDX = Nasdaq 100, XAU/USD = Gold (in USD/oz)
+// SPY = S&P 500 ETF proxy, QQQ = Nasdaq 100 ETF proxy, XAU/USD = Gold spot (USD/oz)
+// SPX/NDX indices require a paid plan; SPY/QQQ ETFs are available on the free plan
 // All prices are in USD, converted to INR before returning
 async function fetchTwelveDataQuotes(): Promise<{
   sp500: { price: number; change: number; changePercent: number };
@@ -107,7 +108,7 @@ async function fetchTwelveDataQuotes(): Promise<{
   if (!apiKey) return { sp500: zero, nasdaq100: zero, gold: zero };
 
   try {
-    const symbols = "SPX,NDX,XAU/USD";
+    const symbols = "SPY,QQQ,XAU/USD";
     const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbols)}&apikey=${apiKey}`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
@@ -118,7 +119,7 @@ async function fetchTwelveDataQuotes(): Promise<{
     const data = await res.json() as Record<string, any>;
 
     function parseQuote(q: any): { price: number; change: number; changePercent: number } {
-      if (!q || q.status === "error" || !q.close) return zero;
+      if (!q || q.status === "error" || q.code === 403 || !q.close) return zero;
       const price = parseFloat(q.close) * USD_TO_INR;
       const prevClose = parseFloat(q.previous_close ?? q.close) * USD_TO_INR;
       const change = price - prevClose;
@@ -127,8 +128,8 @@ async function fetchTwelveDataQuotes(): Promise<{
     }
 
     return {
-      sp500: parseQuote(data["SPX"]),
-      nasdaq100: parseQuote(data["NDX"]),
+      sp500: parseQuote(data["SPY"]),
+      nasdaq100: parseQuote(data["QQQ"]),
       gold: parseQuote(data["XAU/USD"]),
     };
   } catch {
