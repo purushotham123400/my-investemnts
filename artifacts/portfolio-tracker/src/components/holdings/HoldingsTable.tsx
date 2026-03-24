@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { formatINR, formatPercent, cn } from "@/lib/utils";
 import { usePortfolioMutations } from "@/hooks/use-portfolio";
 import { useAlertsMutations } from "@/hooks/use-alerts";
-import { Plus, Minus, Trash2, Coins, TrendingUp, TrendingDown, Bell, BellPlus } from "lucide-react";
+import { Plus, Minus, Trash2, Coins, TrendingUp, TrendingDown, Bell, BellPlus, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TradeSharesDialog } from "./HoldingForms";
@@ -32,13 +32,13 @@ function NoteInput({ holding }: { holding: any }) {
   };
 
   return (
-    <input 
-      value={note} 
-      onChange={e => setNote(e.target.value)} 
+    <input
+      value={note}
+      onChange={e => setNote(e.target.value)}
       onBlur={handleBlur}
       onKeyDown={handleKeyDown}
-      className="bg-transparent border-b border-transparent hover:border-border focus:border-primary outline-none transition-colors w-full text-sm py-1 min-w-[150px] placeholder:text-muted-foreground/50" 
-      placeholder="Add note..." 
+      className="bg-transparent border-b border-transparent hover:border-border focus:border-primary outline-none transition-colors w-full text-sm py-1 min-w-[150px] placeholder:text-muted-foreground/50"
+      placeholder="Add note..."
     />
   );
 }
@@ -63,12 +63,7 @@ function QuickAlertDialog({ holding, open, onOpenChange }: { holding: any, open:
 
   const onSubmit = async (data: z.infer<typeof alertSchema>) => {
     await createAlert.mutateAsync({
-      data: {
-        symbol: holding.symbol,
-        name: holding.name,
-        targetPrice: data.targetPrice,
-        direction: data.direction
-      }
+      data: { symbol: holding.symbol, name: holding.name, targetPrice: data.targetPrice, direction: data.direction }
     });
     onOpenChange(false);
   };
@@ -90,9 +85,7 @@ function QuickAlertDialog({ holding, open, onOpenChange }: { holding: any, open:
           <div className="space-y-2">
             <Label>Condition</Label>
             <Select onValueChange={(val) => form.setValue("direction", val as any)} defaultValue={form.getValues("direction")}>
-              <SelectTrigger className="bg-background/50">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="bg-background/50"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="above">Goes Above (↑)</SelectItem>
                 <SelectItem value="below">Drops Below (↓)</SelectItem>
@@ -100,13 +93,133 @@ function QuickAlertDialog({ holding, open, onOpenChange }: { holding: any, open:
             </Select>
           </div>
           <div className="pt-4 flex justify-end">
-            <Button type="submit" disabled={form.formState.isSubmitting} className="w-full">
-              Set Alert
-            </Button>
+            <Button type="submit" disabled={form.formState.isSubmitting} className="w-full">Set Alert</Button>
           </div>
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+type MobileTab = "overview" | "pl" | "today";
+
+function MobileHoldingCard({ h, onTrade, onDelete, onAlert }: { h: any; onTrade: (h: any, mode: 'add' | 'reduce') => void; onDelete: (id: number) => void; onAlert: (h: any) => void }) {
+  const [tab, setTab] = useState<MobileTab>("overview");
+  const isProfit = h.profitLoss >= 0;
+  const isTodayProfit = (h.todayPL ?? 0) >= 0;
+  const hasTodayPL = h.todayPL !== null;
+
+  return (
+    <div className="glass-panel rounded-2xl p-4 border border-card-border">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-foreground text-lg">{h.symbol}</span>
+            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 border-none",
+              h.type === 'stock' ? "bg-blue-500/20 text-blue-400" : "bg-orange-500/20 text-orange-400")}>
+              {h.type}
+            </Badge>
+          </div>
+          <div className="text-xs text-muted-foreground truncate max-w-[200px]">{h.name}</div>
+        </div>
+        <div className="flex gap-1">
+          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => onAlert(h)}><Bell className="w-3.5 h-3.5" /></Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-400 hover:bg-emerald-500/10" onClick={() => onTrade(h, 'add')}><Plus className="w-3.5 h-3.5" /></Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8 text-amber-400 hover:bg-amber-500/10" onClick={() => onTrade(h, 'reduce')}><Minus className="w-3.5 h-3.5" /></Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => onDelete(h.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+        </div>
+      </div>
+
+      {/* Tab buttons */}
+      <div className="flex gap-1 mb-3">
+        {(["overview", "pl", "today"] as MobileTab[]).map((t) => (
+          <button key={t} onClick={() => setTab(t)}
+            className={cn("flex-1 text-[11px] py-1 rounded-md font-medium transition-all",
+              tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-card-border/30")}>
+            {t === "overview" ? "Overview" : t === "pl" ? "P&L" : "Today"}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      {tab === "overview" && (
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="bg-background/30 rounded-lg p-2">
+            <div className="text-[10px] text-muted-foreground mb-0.5">Current Price</div>
+            <div className="font-bold">{formatINR(h.currentPrice)}</div>
+            <div className={cn("text-[10px]", h.changePercent >= 0 ? "text-green-400" : "text-destructive")}>
+              {h.changePercent >= 0 ? "+" : ""}{h.changePercent?.toFixed(2)}%
+            </div>
+          </div>
+          <div className="bg-background/30 rounded-lg p-2">
+            <div className="text-[10px] text-muted-foreground mb-0.5">Quantity</div>
+            <div className="font-bold">{h.quantity}</div>
+            <div className="text-[10px] text-muted-foreground">shares</div>
+          </div>
+          <div className="bg-background/30 rounded-lg p-2">
+            <div className="text-[10px] text-muted-foreground mb-0.5">Avg Buy</div>
+            <div className="font-bold">{formatINR(h.avgBuyPrice)}</div>
+          </div>
+          <div className="bg-background/30 rounded-lg p-2">
+            <div className="text-[10px] text-muted-foreground mb-0.5">Current Value</div>
+            <div className="font-bold">{formatINR(h.currentValue)}</div>
+          </div>
+        </div>
+      )}
+
+      {tab === "pl" && (
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className={cn("rounded-lg p-2 col-span-2", isProfit ? "bg-emerald-500/10" : "bg-red-500/10")}>
+            <div className="text-[10px] text-muted-foreground mb-0.5">Total P&L</div>
+            <div className={cn("font-bold text-lg flex items-center gap-1", isProfit ? "text-emerald-400" : "text-destructive")}>
+              {isProfit ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+              {isProfit ? "+" : ""}{formatINR(h.profitLoss)}
+            </div>
+            <div className={cn("text-xs font-medium", isProfit ? "text-emerald-400/80" : "text-destructive/80")}>
+              {formatPercent(h.profitLossPercent)}
+            </div>
+          </div>
+          <div className="bg-background/30 rounded-lg p-2">
+            <div className="text-[10px] text-muted-foreground mb-0.5">Invested</div>
+            <div className="font-bold">{formatINR(h.totalInvested)}</div>
+          </div>
+          <div className="bg-background/30 rounded-lg p-2">
+            <div className="text-[10px] text-muted-foreground mb-0.5">Current</div>
+            <div className="font-bold">{formatINR(h.currentValue)}</div>
+          </div>
+        </div>
+      )}
+
+      {tab === "today" && (
+        <div className="grid grid-cols-1 gap-3 text-sm">
+          {hasTodayPL ? (
+            <div className={cn("rounded-lg p-3", isTodayProfit ? "bg-emerald-500/10" : "bg-red-500/10")}>
+              <div className="text-[10px] text-muted-foreground mb-1">Today's P&L</div>
+              <div className={cn("font-bold text-xl flex items-center gap-1", isTodayProfit ? "text-emerald-400" : "text-destructive")}>
+                {isTodayProfit ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                {isTodayProfit ? "+" : ""}{formatINR(h.todayPL)}
+              </div>
+              {h.todayPLPercent !== null && (
+                <div className={cn("text-xs font-medium mt-0.5", isTodayProfit ? "text-emerald-400/80" : "text-destructive/80")}>
+                  {formatPercent(h.todayPLPercent)}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-background/30 rounded-lg p-4 text-center">
+              <Flame className="w-6 h-6 text-muted-foreground/40 mx-auto mb-1" />
+              <p className="text-xs text-muted-foreground">Today's P&L will be available after day-end prices are saved (23:59 IST)</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Note */}
+      <div className="mt-3 bg-black/20 rounded p-2">
+        <NoteInput holding={h} />
+      </div>
+    </div>
   );
 }
 
@@ -118,7 +231,7 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
   const [tradeState, setTradeState] = useState<{ holding: any | null, mode: 'add' | 'reduce' }>({ holding: null, mode: 'add' });
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [alertHolding, setAlertHolding] = useState<any | null>(null);
-  
+
   const { deleteHolding } = usePortfolioMutations();
 
   if (holdings.length === 0) {
@@ -135,10 +248,23 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
 
   return (
     <>
-      {/* Desktop Table View */}
+      {/* Mobile Cards */}
+      <div className="md:hidden space-y-4">
+        {holdings.map((h) => (
+          <MobileHoldingCard
+            key={h.id}
+            h={h}
+            onTrade={(holding, mode) => setTradeState({ holding, mode })}
+            onDelete={(id) => setDeleteId(id)}
+            onAlert={(holding) => setAlertHolding(holding)}
+          />
+        ))}
+      </div>
+
+      {/* Desktop Table */}
       <div className="hidden md:block glass-panel rounded-2xl overflow-hidden border border-card-border">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[1000px]">
+          <table className="w-full text-left border-collapse min-w-[1100px]">
             <thead>
               <tr className="bg-card-border/30 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-card-border">
                 <th className="p-4 rounded-tl-2xl">Asset</th>
@@ -146,14 +272,16 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
                 <th className="p-4 text-right">Avg Buy Price</th>
                 <th className="p-4 text-right">Invested</th>
                 <th className="p-4 text-right">Current Val</th>
-                <th className="p-4 text-right">P&L</th>
-                <th className="p-4 w-[20%]">Notes</th>
+                <th className="p-4 text-right">Total P&L</th>
+                <th className="p-4 text-right">Today's P&L</th>
+                <th className="p-4 w-[18%]">Notes</th>
                 <th className="p-4 text-center rounded-tr-2xl">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-card-border/50 text-sm">
               {holdings.map((h) => {
                 const isProfit = h.profitLoss >= 0;
+                const isTodayProfit = (h.todayPL ?? 0) >= 0;
                 return (
                   <tr key={h.id} className="hover:bg-white/[0.02] transition-colors group">
                     <td className="p-4">
@@ -161,10 +289,8 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
                         <div className="flex-1 min-w-0">
                           <div className="font-bold text-foreground flex items-center space-x-2">
                             <span>{h.symbol}</span>
-                            <Badge variant="outline" className={cn(
-                              "text-[10px] px-1.5 py-0 border-none bg-opacity-20",
-                              h.type === 'stock' ? "bg-blue-500 text-blue-400" : "bg-orange-500 text-orange-400"
-                            )}>
+                            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 border-none bg-opacity-20",
+                              h.type === 'stock' ? "bg-blue-500 text-blue-400" : "bg-orange-500 text-orange-400")}>
                               {h.type}
                             </Badge>
                           </div>
@@ -174,40 +300,52 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
                     </td>
                     <td className="p-4">
                       <div className="font-medium">{formatINR(h.currentPrice)}</div>
-                      <div className="text-xs text-muted-foreground">{h.quantity} shares</div>
+                      <div className={cn("text-xs", h.changePercent >= 0 ? "text-green-400" : "text-destructive")}>
+                        {h.changePercent >= 0 ? "+" : ""}{h.changePercent?.toFixed(2)}% · {h.quantity} shares
+                      </div>
                     </td>
                     <td className="p-4 text-right font-medium">{formatINR(h.avgBuyPrice)}</td>
                     <td className="p-4 text-right">{formatINR(h.totalInvested)}</td>
                     <td className="p-4 text-right">
                       <div className="font-medium">{formatINR(h.currentValue)}</div>
-                      <div className="text-xs text-muted-foreground">@{formatINR(h.currentPrice)}</div>
                     </td>
                     <td className="p-4 text-right">
                       <div className={cn("font-bold flex items-center justify-end space-x-1", isProfit ? "text-green-500" : "text-destructive")}>
                         {isProfit ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                        <span>{formatINR(h.profitLoss)}</span>
+                        <span>{isProfit ? "+" : ""}{formatINR(h.profitLoss)}</span>
                       </div>
-                      <div className={cn("text-xs", isProfit ? "text-green-500/80" : "text-destructive/80")}>
-                        {formatPercent(h.profitLossPercent)}
-                      </div>
+                      <div className={cn("text-xs", isProfit ? "text-green-500/80" : "text-destructive/80")}>{formatPercent(h.profitLossPercent)}</div>
+                    </td>
+                    <td className="p-4 text-right">
+                      {h.todayPL !== null ? (
+                        <>
+                          <div className={cn("font-bold flex items-center justify-end space-x-1", isTodayProfit ? "text-green-500" : "text-destructive")}>
+                            {isTodayProfit ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                            <span>{isTodayProfit ? "+" : ""}{formatINR(h.todayPL)}</span>
+                          </div>
+                          {h.todayPLPercent !== null && (
+                            <div className={cn("text-xs", isTodayProfit ? "text-green-500/80" : "text-destructive/80")}>{formatPercent(h.todayPLPercent)}</div>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/50">–</span>
+                      )}
                     </td>
                     <td className="p-4">
-                      <div className="bg-black/20 rounded p-1">
-                        <NoteInput holding={h} />
-                      </div>
+                      <div className="bg-black/20 rounded p-1"><NoteInput holding={h} /></div>
                     </td>
                     <td className="p-4">
                       <div className="flex items-center justify-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10" title="Alert" onClick={() => setAlertHolding(h)}>
-                          <Bell className="w-4 h-4" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-400 hover:text-green-300 hover:bg-green-400/10" title="Buy More" onClick={() => setTradeState({ holding: h, mode: 'add' })}>
+                        <Button size="icon" variant="ghost" className="h-9 w-9 bg-primary/10 text-primary hover:bg-primary/20" onClick={() => setTradeState({ holding: h, mode: 'add' })}>
                           <Plus className="w-4 h-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-orange-400 hover:text-orange-300 hover:bg-orange-400/10" title="Sell" onClick={() => setTradeState({ holding: h, mode: 'reduce' })}>
+                        <Button size="icon" variant="ghost" className="h-9 w-9 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20" onClick={() => setTradeState({ holding: h, mode: 'reduce' })}>
                           <Minus className="w-4 h-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" title="Delete Holding" onClick={() => setDeleteId(h.id)}>
+                        <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-card-border/50" onClick={() => setAlertHolding(h)}>
+                          <Bell className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-9 w-9 bg-destructive/10 text-destructive hover:bg-destructive/20" onClick={() => setDeleteId(h.id)}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -220,111 +358,39 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
         </div>
       </div>
 
-      {/* Mobile Card View */}
-      <div className="md:hidden space-y-4">
-        {holdings.map((h) => {
-          const isProfit = h.profitLoss >= 0;
-          return (
-            <div key={h.id} className="glass-panel p-4 rounded-xl flex flex-col gap-3">
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="font-bold text-lg flex items-center space-x-2">
-                    <span>{h.symbol}</span>
-                    <Badge variant="outline" className={cn(
-                      "text-[10px] px-1.5 py-0 border-none bg-opacity-20",
-                      h.type === 'stock' ? "bg-blue-500 text-blue-400" : "bg-orange-500 text-orange-400"
-                    )}>
-                      {h.type}
-                    </Badge>
-                  </div>
-                  <div className="text-sm text-muted-foreground">{h.name}</div>
-                </div>
-                <div className="text-right">
-                  <div className="font-bold text-lg">{formatINR(h.currentPrice)}</div>
-                  <div className="text-sm text-muted-foreground">{h.quantity} shares</div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-sm bg-black/20 p-3 rounded-lg">
-                <div>
-                  <div className="text-muted-foreground text-[11px] uppercase tracking-wider mb-0.5">Invested</div>
-                  <div>{formatINR(h.totalInvested)} <div className="text-[10px] text-muted-foreground">@{formatINR(h.avgBuyPrice)}</div></div>
-                </div>
-                <div className="text-right">
-                  <div className="text-muted-foreground text-[11px] uppercase tracking-wider mb-0.5">Current Val</div>
-                  <div className="font-medium text-base">{formatINR(h.currentValue)}</div>
-                  <div className="text-[10px] text-muted-foreground">@{formatINR(h.currentPrice)}</div>
-                </div>
-                <div className="col-span-2 pt-2 mt-1 border-t border-border/50 flex justify-between items-center">
-                  <div className="text-muted-foreground text-[11px] uppercase tracking-wider">P&L</div>
-                  <div className="text-right">
-                    <div className={cn("font-bold flex items-center justify-end space-x-1", isProfit ? "text-green-500" : "text-destructive")}>
-                      {isProfit ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                      <span>{formatINR(h.profitLoss)}</span>
-                      <span className="text-xs opacity-80 ml-1 bg-background/50 px-1.5 py-0.5 rounded">({formatPercent(h.profitLossPercent)})</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-black/20 rounded p-2 border border-border/30">
-                <NoteInput holding={h} />
-              </div>
-
-              <div className="flex items-center justify-between pt-1 gap-2">
-                <Button size="sm" variant="ghost" className="flex-1 bg-primary/10 text-primary hover:bg-primary/20 h-9" onClick={() => setAlertHolding(h)}>
-                  <Bell className="w-4 h-4 mr-1.5" /> Alert
-                </Button>
-                <div className="flex space-x-2">
-                  <Button size="icon" variant="ghost" className="h-9 w-9 bg-green-400/10 text-green-400 hover:bg-green-400/20" onClick={() => setTradeState({ holding: h, mode: 'add' })}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                  <Button size="icon" variant="ghost" className="h-9 w-9 bg-orange-400/10 text-orange-400 hover:bg-orange-400/20" onClick={() => setTradeState({ holding: h, mode: 'reduce' })}>
-                    <Minus className="w-4 h-4" />
-                  </Button>
-                  <Button size="icon" variant="ghost" className="h-9 w-9 bg-destructive/10 text-destructive hover:bg-destructive/20" onClick={() => setDeleteId(h.id)}>
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
       {tradeState.holding && (
-        <TradeSharesDialog 
-          holding={tradeState.holding} 
-          mode={tradeState.mode} 
-          open={!!tradeState.holding} 
+        <TradeSharesDialog
+          holding={tradeState.holding}
+          mode={tradeState.mode}
+          open={!!tradeState.holding}
           onOpenChange={(open) => !open && setTradeState({ holding: null, mode: 'add' })}
         />
       )}
 
-      <QuickAlertDialog 
-        holding={alertHolding} 
-        open={!!alertHolding} 
-        onOpenChange={(open) => !open && setAlertHolding(null)} 
+      <QuickAlertDialog
+        holding={alertHolding}
+        open={!!alertHolding}
+        onOpenChange={(open) => !open && setAlertHolding(null)}
       />
 
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent className="max-w-[95vw] sm:max-w-md glass-panel border-none shadow-2xl rounded-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Holding</AlertDialogTitle>
+            <AlertDialogTitle>Move to Bin?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to permanently delete this holding? This action cannot be undone.
+              This holding will be moved to the Bin. You can restore it from there, or permanently delete it.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 mt-4">
             <AlertDialogCancel className="bg-background/50 hover:bg-background border-none w-full sm:w-auto mt-0">Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90 text-destructive-foreground w-full sm:w-auto"
               onClick={() => {
                 if (deleteId) deleteHolding.mutate({ id: deleteId });
                 setDeleteId(null);
               }}
             >
-              Delete Permanently
+              Move to Bin
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
