@@ -52,7 +52,7 @@ export default function Dashboard() {
             className="grid grid-cols-1 lg:grid-cols-3 gap-6"
           >
             <div className="lg:col-span-2">
-              <PerformanceChart />
+              <PerformanceChart todayValue={totals.currentValue} todayInvested={totals.totalInvested} />
             </div>
             <div className="lg:col-span-1">
               <AllocationChart holdings={holdings} />

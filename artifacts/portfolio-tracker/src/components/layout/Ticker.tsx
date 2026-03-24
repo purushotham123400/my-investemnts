@@ -7,7 +7,7 @@ import { TrendingUp, TrendingDown, Activity, RefreshCw } from "lucide-react";
 export function Ticker() {
   const queryClient = useQueryClient();
   const { data: marketPrices, isLoading } = useGetMarketPrices({
-    query: { refetchInterval: 3600000 }
+    query: { refetchInterval: 300000 }
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);

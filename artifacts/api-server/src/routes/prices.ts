@@ -127,7 +127,7 @@ async function fetchAndCacheMarketPrices() {
 }
 
 let lastFetch = 0;
-const CACHE_TTL = 60 * 60 * 1000;
+const CACHE_TTL = 5 * 60 * 1000;
 
 router.get("/", async (req, res) => {
   try {
