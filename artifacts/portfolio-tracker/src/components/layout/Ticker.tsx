@@ -6,7 +6,7 @@ import { TrendingUp, TrendingDown, Activity, RefreshCw } from "lucide-react";
 
 export function Ticker() {
   const queryClient = useQueryClient();
-  const { data: marketPrices, isLoading } = useGetMarketPrices({
+  const { data: marketPrices, isLoading, refetch } = useGetMarketPrices({
     query: { refetchInterval: 300000 }
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -40,8 +40,14 @@ export function Ticker() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await queryClient.invalidateQueries();
-    setIsRefreshing(false);
+    try {
+      // Force backend to bypass its in-memory cache
+      await fetch(`${import.meta.env.BASE_URL}api/prices?force=true`);
+      // Refetch all queries (prices + holdings)
+      await queryClient.refetchQueries();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   if (isLoading) {
