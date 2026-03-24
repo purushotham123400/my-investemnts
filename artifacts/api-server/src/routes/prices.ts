@@ -94,43 +94,40 @@ async function fetchCryptoPrice(coinId: string): Promise<{ price: number; change
   }
 }
 
-// Twelve Data API - used for S&P 500, Nasdaq 100, and Gold
-// SPY = S&P 500 ETF proxy, QQQ = Nasdaq 100 ETF proxy, XAU/USD = Gold spot (USD/oz)
-// SPX/NDX indices require a paid plan; SPY/QQQ ETFs are available on the free plan
-// All prices are in USD, converted to INR before returning
-async function fetchTwelveDataQuotes(): Promise<{
+// Financial Modeling Prep (FMP) API - primary source for S&P 500, Nasdaq 100, Gold
+// SPY (S&P 500 ETF) * 10 ≈ S&P 500 index; QQQ (Nasdaq 100 ETF) * 40 ≈ Nasdaq 100 index
+// XAUUSD = Gold spot in USD/oz, converted to INR; falls back to Yahoo Finance GC=F if unavailable
+async function fetchFMPQuotes(): Promise<{
   sp500: { price: number; change: number; changePercent: number };
   nasdaq100: { price: number; change: number; changePercent: number };
   gold: { price: number; change: number; changePercent: number };
 }> {
   const zero = { price: 0, change: 0, changePercent: 0 };
-  const apiKey = process.env.TWELVE_DATA_API_KEY;
+  const apiKey = process.env.FMP_API_KEY;
   if (!apiKey) return { sp500: zero, nasdaq100: zero, gold: zero };
 
   try {
-    const symbols = "SPY,QQQ,XAU/USD";
-    const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbols)}&apikey=${apiKey}`;
+    const url = `https://financialmodelingprep.com/api/v3/quote/SPY,QQQ,XAUUSD?apikey=${apiKey}`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
     if (!res.ok) return { sp500: zero, nasdaq100: zero, gold: zero };
 
-    const data = await res.json() as Record<string, any>;
+    const data = await res.json() as Array<{ symbol: string; price: number; changesPercentage: number; change: number }>;
+    if (!Array.isArray(data)) return { sp500: zero, nasdaq100: zero, gold: zero };
 
-    function parseQuote(q: any): { price: number; change: number; changePercent: number } {
-      if (!q || q.status === "error" || q.code === 403 || !q.close) return zero;
-      const price = parseFloat(q.close);
-      const prevClose = parseFloat(q.previous_close ?? q.close);
-      const change = price - prevClose;
-      const changePercent = parseFloat(q.percent_change ?? "0");
-      return { price, change, changePercent };
+    function parseQuote(symbol: string, toInr = true): { price: number; change: number; changePercent: number } {
+      const q = data.find(d => d.symbol === symbol);
+      if (!q || !q.price) return zero;
+      const fx = toInr ? USD_TO_INR : 1;
+      return { price: q.price * fx, change: (q.change ?? 0) * fx, changePercent: q.changesPercentage ?? 0 };
     }
 
     return {
-      sp500: parseQuote(data["SPY"]),
-      nasdaq100: parseQuote(data["QQQ"]),
-      gold: parseQuote(data["XAU/USD"]),
+      sp500: parseQuote("SPY"),
+      nasdaq100: parseQuote("QQQ"),
+      gold: parseQuote("XAUUSD"),
     };
   } catch {
     return { sp500: zero, nasdaq100: zero, gold: zero };
@@ -140,22 +137,22 @@ async function fetchTwelveDataQuotes(): Promise<{
 async function fetchAndCacheMarketPrices() {
   // Indian indices: Yahoo Finance v8 chart (works well for NSE)
   // Crypto: CoinGecko
-  // S&P 500, Nasdaq 100, Gold: Twelve Data (falls back to Yahoo if key not set or fetch fails)
-  const [nifty50, niftyIT, niftyBank, twelveData, btc, eth, sol] = await Promise.all([
+  // S&P 500, Nasdaq 100, Gold: FMP API (falls back to Yahoo Finance if unavailable)
+  const [nifty50, niftyIT, niftyBank, fmpData, btc, eth, sol] = await Promise.all([
     fetchYahooV8Chart("^NSEI"),
     fetchYahooV8Chart("^CNXIT"),
     fetchYahooV8Chart("^NSEBANK"),
-    fetchTwelveDataQuotes(),
+    fetchFMPQuotes(),
     fetchCryptoPrice("bitcoin"),
     fetchCryptoPrice("ethereum"),
     fetchCryptoPrice("solana"),
   ]);
 
-  // Fall back to Yahoo Finance if Twelve Data returned zero prices
+  // Fall back to Yahoo Finance if FMP returned zero prices
   const [sp500, nasdaq100, gold] = await Promise.all([
-    twelveData.sp500.price > 0 ? Promise.resolve(twelveData.sp500) : fetchYahooV7Quote("SPY"),
-    twelveData.nasdaq100.price > 0 ? Promise.resolve(twelveData.nasdaq100) : fetchYahooV7Quote("QQQ"),
-    twelveData.gold.price > 0 ? Promise.resolve(twelveData.gold) : fetchYahooV7Quote("GC=F"),
+    fmpData.sp500.price > 0 ? Promise.resolve(fmpData.sp500) : fetchYahooV7Quote("SPY"),
+    fmpData.nasdaq100.price > 0 ? Promise.resolve(fmpData.nasdaq100) : fetchYahooV7Quote("QQQ"),
+    fmpData.gold.price > 0 ? Promise.resolve(fmpData.gold) : fetchYahooV7Quote("GC=F"),
   ]);
 
   // Apply ETF-to-index multipliers:
