@@ -1,8 +1,10 @@
 import { useRef, useEffect, useState } from "react";
 import { useGetMarketPrices } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { formatINR, cn } from "@/lib/utils";
+import { formatINR, formatUSD, cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Activity, RefreshCw } from "lucide-react";
+
+const USD_LABELS = new Set(["S&P 500", "Nasdaq 100", "Gold"]);
 
 export function Ticker() {
   const queryClient = useQueryClient();
@@ -92,7 +94,7 @@ export function Ticker() {
             return (
               <div key={i} className="flex items-center space-x-3 px-6 border-r border-border/50 shrink-0">
                 <span className="text-muted-foreground">{p.label}</span>
-                <span className="text-foreground">{formatINR(p.price)}</span>
+                <span className="text-foreground">{USD_LABELS.has(p.label) ? formatUSD(p.price) : formatINR(p.price)}</span>
                 <span className={cn(
                   "flex items-center space-x-1 text-xs px-1.5 py-0.5 rounded",
                   isPositive ? "text-green-400 bg-green-400/10" : "text-destructive bg-destructive/10"
