@@ -39,10 +39,12 @@ export function PerformanceChart({ todayValue, todayInvested }: PerformanceChart
   const { data: history = [], isLoading } = useGetPortfolioHistory({ range });
 
   const todayDate = new Date().toISOString().split("T")[0];
-  const hasToday = history.some((h) => h.date === todayDate);
-  const chartData = hasToday || todayValue === undefined || todayInvested === undefined
-    ? history
-    : [...history, { id: 0, date: todayDate, totalValue: todayValue, totalInvested: todayInvested, profitLoss: todayValue - todayInvested, createdAt: new Date().toISOString() }];
+  // Always override today's point with live values so chart updates immediately
+  // when holdings are added or deleted (don't rely on stale DB snapshot)
+  const historyWithoutToday = history.filter((h) => h.date !== todayDate);
+  const chartData = todayValue !== undefined && todayInvested !== undefined
+    ? [...historyWithoutToday, { id: 0, date: todayDate, totalValue: todayValue, totalInvested: todayInvested, profitLoss: todayValue - todayInvested, createdAt: new Date().toISOString() }]
+    : history;
 
   return (
     <div className="bg-card border border-card-border rounded-2xl p-4 md:p-6">
