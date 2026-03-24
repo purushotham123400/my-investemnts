@@ -120,8 +120,8 @@ async function fetchTwelveDataQuotes(): Promise<{
 
     function parseQuote(q: any): { price: number; change: number; changePercent: number } {
       if (!q || q.status === "error" || q.code === 403 || !q.close) return zero;
-      const price = parseFloat(q.close) * USD_TO_INR;
-      const prevClose = parseFloat(q.previous_close ?? q.close) * USD_TO_INR;
+      const price = parseFloat(q.close);
+      const prevClose = parseFloat(q.previous_close ?? q.close);
       const change = price - prevClose;
       const changePercent = parseFloat(q.percent_change ?? "0");
       return { price, change, changePercent };
