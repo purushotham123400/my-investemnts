@@ -2,23 +2,35 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { formatINR, formatPercent, cn } from "@/lib/utils";
 import { Wallet, PieChart, TrendingUp, TrendingDown, Layers } from "lucide-react";
-import { useGetPortfolioHistory } from "@workspace/api-client-react";
 
 interface SummaryCardsProps {
-  totals: { totalInvested: number; currentValue: number; profitLoss: number; profitLossPercent: number; holdingCount: number };
+  totals: {
+    totalInvested: number;
+    currentValue: number;
+    profitLoss: number;
+    profitLossPercent: number;
+    holdingCount: number;
+    todayPLTotal: number | null;
+    todayPLPercent: number | null;
+  };
   isLoading: boolean;
 }
 
 export function SummaryCards({ totals, isLoading }: SummaryCardsProps) {
   const [showTodayPL, setShowTodayPL] = useState(false);
-  const { data: history = [] } = useGetPortfolioHistory({ range: "7d" });
   const isPositive = totals.profitLoss >= 0;
-  const todayDate = new Date().toISOString().split("T")[0];
-  const pastHistory = history.filter((h) => h.date < todayDate);
-  const lastRecord = pastHistory[pastHistory.length - 1];
-  const todayPL = lastRecord ? totals.currentValue - lastRecord.totalValue : totals.profitLoss;
-  const todayPLPercent = lastRecord && lastRecord.totalValue > 0 ? (todayPL / lastRecord.totalValue) * 100 : totals.profitLossPercent;
+
+  const hasTodayPL = totals.todayPLTotal !== null;
+  const todayPL = totals.todayPLTotal ?? 0;
+  const todayPLPercent = totals.todayPLPercent ?? 0;
   const isTodayPositive = todayPL >= 0;
+
+  const plValue = showTodayPL
+    ? (hasTodayPL ? `${todayPL >= 0 ? "+" : ""}${formatINR(todayPL)}` : "–")
+    : `${totals.profitLoss >= 0 ? "+" : ""}${formatINR(totals.profitLoss)}`;
+  const plPercent = showTodayPL
+    ? (hasTodayPL ? formatPercent(todayPLPercent) : null)
+    : formatPercent(totals.profitLossPercent);
   const plPositive = showTodayPL ? isTodayPositive : isPositive;
 
   const cards = [
@@ -26,8 +38,8 @@ export function SummaryCards({ totals, isLoading }: SummaryCardsProps) {
     { title: "Total Invested", value: formatINR(totals.totalInvested), icon: <PieChart size={16} />, highlight: false, positive: undefined, subValue: undefined, onClick: undefined, hint: undefined },
     {
       title: showTodayPL ? "Today's P&L" : "Total P&L",
-      value: showTodayPL ? `${todayPL >= 0 ? "+" : ""}${formatINR(todayPL)}` : `${totals.profitLoss >= 0 ? "+" : ""}${formatINR(totals.profitLoss)}`,
-      subValue: showTodayPL ? formatPercent(todayPLPercent) : formatPercent(totals.profitLossPercent),
+      value: plValue,
+      subValue: plPercent ?? undefined,
       icon: plPositive ? <TrendingUp size={16} /> : <TrendingDown size={16} />,
       highlight: true, positive: plPositive,
       onClick: () => setShowTodayPL((p) => !p),
