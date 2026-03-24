@@ -26,6 +26,16 @@ export function formatCompactINR(value: number): string {
   }).format(value);
 }
 
+export function formatUSD(value: number): string {
+  if (typeof value !== 'number') return '$0.00';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  }).format(value);
+}
+
 export function formatPercent(value: number): string {
   if (typeof value !== 'number') return '0.00%';
   return new Intl.NumberFormat('en-IN', {
