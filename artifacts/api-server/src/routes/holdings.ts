@@ -57,19 +57,23 @@ router.patch("/:id", async (req, res) => {
     } else if (action === "reduce") {
       const reduceQty = Number(quantity);
       if (reduceQty >= existing.quantity) {
-        // Move to bin when reducing to zero
-        await db.insert(deletedHoldingsTable).values({
-          originalId: existing.id,
-          symbol: existing.symbol,
-          name: existing.name,
-          type: existing.type,
-          quantity: existing.quantity,
-          avgBuyPrice: existing.avgBuyPrice,
-          note: existing.note,
-          originalCreatedAt: existing.createdAt,
-        });
+        // Move to bin
+        try {
+          await db.insert(deletedHoldingsTable).values({
+            originalId: existing.id,
+            symbol: existing.symbol,
+            name: existing.name,
+            type: existing.type,
+            quantity: existing.quantity,
+            avgBuyPrice: existing.avgBuyPrice,
+            note: existing.note ?? null,
+            originalCreatedAt: existing.createdAt,
+          });
+        } catch (binErr) {
+          req.log.warn({ binErr }, "Could not move to bin, will permanently delete");
+        }
         await db.delete(holdingsTable).where(eq(holdingsTable.id, id));
-        res.json({ message: "Holding moved to bin as quantity reached zero" });
+        res.json({ message: "Holding deleted as quantity reached zero" });
         return;
       }
       updates = { quantity: existing.quantity - reduceQty };
@@ -88,26 +92,32 @@ router.patch("/:id", async (req, res) => {
   }
 });
 
-// Soft delete - moves to bin
+// Soft delete - moves to bin, falls back to permanent delete if bin fails
 router.delete("/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
     const [existing] = await db.select().from(holdingsTable).where(eq(holdingsTable.id, id));
     if (!existing) { res.status(404).json({ error: "Holding not found" }); return; }
 
-    await db.insert(deletedHoldingsTable).values({
-      originalId: existing.id,
-      symbol: existing.symbol,
-      name: existing.name,
-      type: existing.type,
-      quantity: existing.quantity,
-      avgBuyPrice: existing.avgBuyPrice,
-      note: existing.note,
-      originalCreatedAt: existing.createdAt,
-    });
-
-    await db.delete(holdingsTable).where(eq(holdingsTable.id, id));
-    res.json({ message: "Holding moved to bin" });
+    // Try to move to bin
+    try {
+      await db.insert(deletedHoldingsTable).values({
+        originalId: existing.id,
+        symbol: existing.symbol,
+        name: existing.name,
+        type: existing.type,
+        quantity: existing.quantity,
+        avgBuyPrice: existing.avgBuyPrice,
+        note: existing.note ?? null,
+        originalCreatedAt: existing.createdAt,
+      });
+      await db.delete(holdingsTable).where(eq(holdingsTable.id, id));
+      res.json({ message: "Holding moved to bin" });
+    } catch (binErr) {
+      req.log.error({ binErr }, "Bin insert failed, attempting permanent delete");
+      await db.delete(holdingsTable).where(eq(holdingsTable.id, id));
+      res.json({ message: "Holding deleted" });
+    }
   } catch (err) {
     req.log.error({ err }, "Failed to delete holding");
     res.status(500).json({ error: "Failed to delete holding" });
